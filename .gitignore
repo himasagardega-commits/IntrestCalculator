@@ -6,3 +6,6 @@
 build/
 app/build/
 .cxx/
+*.jks
+*.keystore
+keystore.properties
