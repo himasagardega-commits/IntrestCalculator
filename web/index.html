@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interest Calculator - Android App Web Demo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0B4F6C;
+            --primary-light: #D4E9F2;
+            --secondary: #028090;
+            --secondary-light: #BCEBEB;
+            --bg: #F8FAFC;
+            --surface: #FFFFFF;
+            --text-dark: #0F172A;
+            --text-muted: #64748B;
+            --border: #E2E8F0;
+            --error: #BA1A1A;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', -apple-system, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #E2E8F0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .phone-wrapper {
+            width: 100%;
+            max-width: 440px;
+            background: var(--bg);
+            border-radius: 36px;
+            box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+            border: 8px solid #1E293B;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 860px;
+            position: relative;
+        }
+
+        .phone-notch {
+            height: 24px;
+            background: #1E293B;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .notch-pill {
+            width: 80px;
+            height: 8px;
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        /* Top Bar */
+        .app-bar {
+            background: var(--primary);
+            color: #FFFFFF;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .app-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .back-btn {
+            background: transparent;
+            border: none;
+            color: #FFFFFF;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px 8px;
+            display: none;
+        }
+
+        .app-bar-title {
+            font-size: 19px;
+            font-weight: 700;
+        }
+
+        .apk-badge {
+            background: #22C55E;
+            color: #FFFFFF;
+            text-decoration: none;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 5px 10px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .apk-badge:hover { background: #16A34A; }
+
+        /* Main Content Container */
+        .screen-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        /* Cards & Buttons */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 18px;
+            margin-bottom: 14px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        }
+
+        .card-clickable {
+            cursor: pointer;
+            transition: transform 0.15s, border-color 0.15s;
+        }
+
+        .card-clickable:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary);
+        }
+
+        .card-clickable:active { transform: scale(0.98); }
+
+        .btn-group-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-dark);
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .toggle-btn.active {
+            background: var(--primary);
+            color: #FFFFFF;
+            border-color: var(--primary);
+        }
+
+        /* Input fields */
+        .input-group {
+            margin-bottom: 14px;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .input-box {
+            display: flex;
+            align-items: center;
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        .input-box:focus-within {
+            border-color: var(--primary);
+        }
+
+        .input-box input {
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 16px;
+            font-weight: 600;
+            width: 100%;
+            color: var(--text-dark);
+        }
+
+        .prefix, .suffix {
+            color: var(--primary);
+            font-weight: 700;
+            margin-right: 6px;
+        }
+
+        .suffix {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-left: 6px;
+            margin-right: 0;
+        }
+
+        .error-text {
+            color: var(--error);
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+
+        /* Buttons */
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .btn-primary {
+            flex: 2;
+            background: var(--primary);
+            color: #FFFFFF;
+            border: none;
+            padding: 14px;
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(11, 79, 108, 0.2);
+        }
+
+        .btn-primary:active { opacity: 0.9; }
+
+        .btn-outline {
+            flex: 1;
+            background: transparent;
+            color: var(--primary);
+            border: 1.5px solid var(--primary);
+            padding: 14px;
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .presets {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .chip {
+            background: #F1F5F9;
+            border: 1px solid var(--border);
+            padding: 6px 10px;
+            border-radius: 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .chip:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        /* Banner info */
+        .info-banner {
+            background: #F1F5F9;
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.4;
+            margin-top: 10px;
+        }
+
+        /* Live Preview Banner */
+        .live-preview {
+            background: var(--primary-light);
+            border: 1px solid rgba(11, 79, 108, 0.2);
+            border-radius: 14px;
+            padding: 12px 16px;
+            margin-top: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        /* Results Screen Styling */
+        .hero-result {
+            background: var(--primary);
+            color: #FFFFFF;
+            border-radius: 20px;
+            padding: 22px;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .hero-label {
+            font-size: 12px;
+            letter-spacing: 1.5px;
+            font-weight: 700;
+            opacity: 0.8;
+            margin-bottom: 6px;
+        }
+
+        .hero-amount {
+            font-size: 32px;
+            font-weight: 800;
+        }
+
+        .hero-sub {
+            font-size: 12px;
+            opacity: 0.85;
+            margin-top: 4px;
+        }
+
+        .interest-card {
+            background: var(--secondary);
+            color: #FFFFFF;
+            border-radius: 16px;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #F1F5F9;
+            font-size: 14px;
+        }
+
+        .detail-label { color: var(--text-muted); }
+        .detail-val { font-weight: 600; color: var(--text-dark); }
+
+        .schedule-box {
+            background: #F8FAFC;
+            border-radius: 10px;
+            padding: 10px;
+            margin-top: 6px;
+            font-size: 12px;
+            border: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+
+<div class="phone-wrapper">
+    <div class="phone-notch"><div class="notch-pill"></div></div>
+
+    <!-- App Top Bar -->
+    <div class="app-bar">
+        <div class="app-bar-left">
+            <button id="backBtn" class="back-btn" onclick="goBack()">←</button>
+            <div id="barTitle" class="app-bar-title">Interest Calculator</div>
+        </div>
+        <a href="/download-apk" class="apk-badge" title="Download release APK for Android">
+            <span>⬇ APK (10 MB)</span>
+        </a>
+    </div>
+
+    <div class="screen-content">
+
+        <!-- SCREEN 1: HOME -->
+        <div id="screenHome" class="screen active">
+            <h2 style="font-size: 22px; font-weight: 800; color: var(--text-dark); margin-bottom: 6px;">Choose Calculation Mode</h2>
+            <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">Select your calculation method to begin.</p>
+
+            <div class="card card-clickable" onclick="openDateMode('SIMPLE')" style="border-left: 5px solid var(--primary);">
+                <div style="font-size: 11px; font-weight: 700; color: var(--primary); text-transform: uppercase; margin-bottom: 4px;">Most Popular</div>
+                <h3 style="font-size: 18px; font-weight: 700; color: var(--text-dark); margin-bottom: 4px;">Simple Interest</h3>
+                <p style="font-size: 13px; color: var(--text-muted);">Calculated on original principal across actual calendar dates.</p>
+            </div>
+
+            <div class="card card-clickable" onclick="openDateMode('COMPOUND')" style="border-left: 5px solid var(--secondary);">
+                <div style="font-size: 11px; font-weight: 700; color: var(--secondary); text-transform: uppercase; margin-bottom: 4px;">Annual Compounding</div>
+                <h3 style="font-size: 18px; font-weight: 700; color: var(--text-dark); margin-bottom: 4px;">Compound Interest</h3>
+                <p style="font-size: 13px; color: var(--text-muted);">Compounded annually with proportional partial-year calculation.</p>
+            </div>
+
+            <div style="text-align: center; margin: 12px 0; font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 1px;">OR ALTERNATIVE MODE</div>
+
+            <div class="card card-clickable" onclick="openPeriodMode()" style="border-left: 5px solid #6B46C1;">
+                <div style="font-size: 11px; font-weight: 700; color: #6B46C1; text-transform: uppercase; margin-bottom: 4px;">Standardized Days</div>
+                <h3 style="font-size: 18px; font-weight: 700; color: var(--text-dark); margin-bottom: 4px;">Specified Time Period</h3>
+                <p style="font-size: 13px; color: var(--text-muted);">Calculate with fixed duration (days, months, years) without dates.</p>
+            </div>
+
+            <div class="card" style="margin-top: auto; display: flex; justify-content: space-around; text-align: center; padding: 12px;">
+                <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">🛡️ 100% Offline</span>
+                <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">₹ Indian Rupee</span>
+                <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">🚫 Zero Ads</span>
+            </div>
+        </div>
+
+        <!-- SCREEN 2: DATE CALCULATOR (MODE A) -->
+        <div id="screenDate" class="screen">
+            <div class="btn-group-toggle">
+                <button id="toggleSimpleDate" class="toggle-btn active" onclick="setDateInterestType('SIMPLE')">Simple Interest</button>
+                <button id="toggleCompoundDate" class="toggle-btn" onclick="setDateInterestType('COMPOUND')">Compound Interest</button>
+            </div>
+
+            <div class="card">
+                <div class="input-group">
+                    <label class="input-label">Principal Amount (₹)</label>
+                    <div class="input-box">
+                        <span class="prefix">₹</span>
+                        <input type="number" id="datePrincipal" placeholder="e.g. 10,000" oninput="recalcDateLive()">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Annual Interest Rate (%)</label>
+                    <div class="input-box">
+                        <input type="number" step="0.1" id="dateRate" placeholder="e.g. 12" oninput="recalcDateLive()">
+                        <span class="suffix">% per year</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Start Date</label>
+                    <div class="input-box">
+                        <input type="date" id="dateStart" onchange="recalcDateLive()">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">End Date</label>
+                    <div class="input-box">
+                        <input type="date" id="dateEnd" onchange="recalcDateLive()">
+                    </div>
+                    <div id="dateError" class="error-text">End date cannot be earlier than start date</div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px; margin: 8px 0;">
+                    <input type="checkbox" id="checkToday" checked onchange="toggleUseToday(this.checked)">
+                    <label for="checkToday" style="font-size: 13px; font-weight: 500; cursor: pointer;">Use Today's Date for End Date</label>
+                </div>
+
+                <div class="info-banner" id="dateDurationBanner">
+                    <strong>Total Duration:</strong> 0 days
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn-outline" onclick="resetDateInputs()">Clear</button>
+                <button class="btn-primary" onclick="submitDateCalculation()">Calculate</button>
+            </div>
+
+            <div id="dateLiveBox" class="live-preview" style="display: none;" onclick="submitDateCalculation()">
+                <div>
+                    <div style="font-size: 11px; font-weight: 700; color: var(--primary);">LIVE PREVIEW</div>
+                    <div style="font-size: 14px; font-weight: 700; color: var(--text-dark);" id="dateLiveText">Total: ₹0.00</div>
+                </div>
+                <span style="font-size: 12px; font-weight: 700; color: var(--primary);">View Report →</span>
+            </div>
+        </div>
+
+        <!-- SCREEN 3: SPECIFIED TIME PERIOD (MODE B) -->
+        <div id="screenPeriod" class="screen">
+            <div class="btn-group-toggle">
+                <button id="toggleSimplePeriod" class="toggle-btn active" onclick="setPeriodInterestType('SIMPLE')">Simple Interest</button>
+                <button id="toggleCompoundPeriod" class="toggle-btn" onclick="setPeriodInterestType('COMPOUND')">Compound Interest</button>
+            </div>
+
+            <div class="card">
+                <div class="input-group">
+                    <label class="input-label">Principal Amount (₹)</label>
+                    <div class="input-box">
+                        <span class="prefix">₹</span>
+                        <input type="number" id="periodPrincipal" placeholder="e.g. 10,000" oninput="recalcPeriodLive()">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Annual Interest Rate (%)</label>
+                    <div class="input-box">
+                        <input type="number" step="0.1" id="periodRate" placeholder="e.g. 12" oninput="recalcPeriodLive()">
+                        <span class="suffix">% per year</span>
+                    </div>
+                </div>
+
+                <label class="input-label">Time Period Duration</label>
+                <div style="display: flex; gap: 8px;">
+                    <div class="input-box" style="flex: 1;">
+                        <input type="number" id="periodYears" placeholder="0" value="0" oninput="recalcPeriodLive()">
+                        <span class="suffix">yr</span>
+                    </div>
+                    <div class="input-box" style="flex: 1;">
+                        <input type="number" id="periodMonths" placeholder="0" value="0" oninput="recalcPeriodLive()">
+                        <span class="suffix">mo</span>
+                    </div>
+                    <div class="input-box" style="flex: 1;">
+                        <input type="number" id="periodDays" placeholder="0" value="0" oninput="recalcPeriodLive()">
+                        <span class="suffix">d</span>
+                    </div>
+                </div>
+
+                <div class="presets">
+                    <span class="chip" onclick="setPreset(0,0,45)">45 Days</span>
+                    <span class="chip" onclick="setPreset(0,6,0)">6 Months</span>
+                    <span class="chip" onclick="setPreset(1,0,0)">1 Year</span>
+                    <span class="chip" onclick="setPreset(2,0,0)">2 Years</span>
+                    <span class="chip" onclick="setPreset(1,0,90)">1 Yr & 90 D</span>
+                </div>
+
+                <div class="info-banner" id="periodDurationBanner">
+                    <strong>Fixed-Duration:</strong> 1 Year = 365 Days • 1 Month = 30 Days.
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn-outline" onclick="resetPeriodInputs()">Clear</button>
+                <button class="btn-primary" onclick="submitPeriodCalculation()">Calculate</button>
+            </div>
+
+            <div id="periodLiveBox" class="live-preview" style="display: none;" onclick="submitPeriodCalculation()">
+                <div>
+                    <div style="font-size: 11px; font-weight: 700; color: var(--primary);">LIVE PREVIEW</div>
+                    <div style="font-size: 14px; font-weight: 700; color: var(--text-dark);" id="periodLiveText">Total: ₹0.00</div>
+                </div>
+                <span style="font-size: 12px; font-weight: 700; color: var(--primary);">View Report →</span>
+            </div>
+        </div>
+
+        <!-- SCREEN 4: RESULTS -->
+        <div id="screenResults" class="screen">
+            <div class="hero-result">
+                <div class="hero-label">FINAL AMOUNT</div>
+                <div class="hero-amount" id="resTotalAmount">₹0.00</div>
+                <div class="hero-sub" id="resSummarySub">Principal + Interest</div>
+            </div>
+
+            <div class="interest-card">
+                <div>
+                    <div style="font-size: 11px; font-weight: 700; opacity: 0.9; letter-spacing: 1px;">TOTAL INTEREST EARNED</div>
+                    <div style="font-size: 22px; font-weight: 800;" id="resTotalInterest">₹0.00</div>
+                </div>
+                <span style="font-size: 28px;">💰</span>
+            </div>
+
+            <div class="card">
+                <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 10px; color: var(--text-dark);">Calculation Details</h3>
+                <div class="detail-row"><span class="detail-label">Principal Amount</span><span class="detail-val" id="resPrincipal">₹0.00</span></div>
+                <div class="detail-row"><span class="detail-label">Annual Rate</span><span class="detail-val" id="resRate">0%</span></div>
+                <div class="detail-row"><span class="detail-label">Interest Type</span><span class="detail-val" id="resType">Simple Interest</span></div>
+                <div class="detail-row" id="rowDates" style="display: none;"><span class="detail-label">Date Range</span><span class="detail-val" id="resDates">-</span></div>
+                <div class="detail-row"><span class="detail-label">Total Duration</span><span class="detail-val" id="resDays">0 Days</span></div>
+                <div class="detail-row" style="border-bottom: none; margin-top: 6px;"><span class="detail-label" style="font-weight: 700;">Final Total</span><span class="detail-val" style="color: var(--primary); font-size: 16px;" id="resBottomTotal">₹0.00</span></div>
+            </div>
+
+            <div id="scheduleCard" class="card" style="display: none;">
+                <h4 style="font-size: 14px; font-weight: 700; color: var(--text-dark); margin-bottom: 8px;">Annual Compounding Breakdown</h4>
+                <div id="scheduleItems"></div>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn-outline" onclick="goToHome()">Home</button>
+                <button class="btn-primary" onclick="recalculateBack()">Recalculate</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    let currentMode = 'DATE'; // 'DATE' or 'PERIOD'
+    let selectedInterestType = 'SIMPLE'; // 'SIMPLE' or 'COMPOUND'
+    let lastResult = null;
+
+    // Initialization
+    window.onload = function() {
+        const today = new Date();
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(today.getFullYear() - 1);
+
+        document.getElementById('dateEnd').value = today.toISOString().split('T')[0];
+        document.getElementById('dateStart').value = oneYearAgo.toISOString().split('T')[0];
+        recalcDateLive();
+    };
+
+    function setBar(title, showBack) {
+        document.getElementById('barTitle').innerText = title;
+        document.getElementById('backBtn').style.display = showBack ? 'inline-block' : 'none';
+    }
+
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+    }
+
+    function openDateMode(type) {
+        currentMode = 'DATE';
+        selectedInterestType = type;
+        setDateInterestType(type);
+        setBar(type === 'SIMPLE' ? 'Simple Interest' : 'Compound Interest', true);
+        showScreen('screenDate');
+        recalcDateLive();
+    }
+
+    function openPeriodMode() {
+        currentMode = 'PERIOD';
+        setBar('Specified Time Period', true);
+        showScreen('screenPeriod');
+        recalcPeriodLive();
+    }
+
+    function goToHome() {
+        setBar('Interest Calculator', false);
+        showScreen('screenHome');
+    }
+
+    function goBack() {
+        if (document.getElementById('screenResults').classList.contains('active')) {
+            recalculateBack();
+        } else {
+            goToHome();
+        }
+    }
+
+    function recalculateBack() {
+        if (currentMode === 'DATE') {
+            setBar(selectedInterestType === 'SIMPLE' ? 'Simple Interest' : 'Compound Interest', true);
+            showScreen('screenDate');
+        } else {
+            setBar('Specified Time Period', true);
+            showScreen('screenPeriod');
+        }
+    }
+
+    function setDateInterestType(type) {
+        selectedInterestType = type;
+        document.getElementById('toggleSimpleDate').classList.toggle('active', type === 'SIMPLE');
+        document.getElementById('toggleCompoundDate').classList.toggle('active', type === 'COMPOUND');
+        recalcDateLive();
+    }
+
+    function setPeriodInterestType(type) {
+        selectedInterestType = type;
+        document.getElementById('toggleSimplePeriod').classList.toggle('active', type === 'SIMPLE');
+        document.getElementById('toggleCompoundPeriod').classList.toggle('active', type === 'COMPOUND');
+        recalcPeriodLive();
+    }
+
+    function toggleUseToday(checked) {
+        if (checked) {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('dateEnd').value = today;
+            recalcDateLive();
+        }
+    }
+
+    // Mathematical Formatting & Calculations
+    function formatIndian(num) {
+        const fixed = Number(num).toFixed(2);
+        const parts = fixed.split('.');
+        let integerPart = parts[0];
+        const decimalPart = parts[1];
+
+        if (integerPart.length > 3) {
+            const lastThree = integerPart.substring(integerPart.length - 3);
+            let remaining = integerPart.substring(0, integerPart.length - 3);
+            let groups = [];
+            while (remaining.length > 0) {
+                if (remaining.length > 2) {
+                    groups.unshift(remaining.substring(remaining.length - 2));
+                    remaining = remaining.substring(0, remaining.length - 2);
+                } else {
+                    groups.unshift(remaining);
+                    remaining = '';
+                }
+            }
+            groups.push(lastThree);
+            integerPart = groups.join(',');
+        }
+        return '₹' + integerPart + '.' + decimalPart;
+    }
+
+    function calcDaysDifference(d1Str, d2Str) {
+        const d1 = new Date(d1Str);
+        const d2 = new Date(d2Str);
+        const diffTime = d2.getTime() - d1.getTime();
+        return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    function formatDaysBreakdown(days) {
+        if (days <= 0) return '0 days';
+        const y = Math.floor(days / 365);
+        const remY = days % 365;
+        const m = Math.floor(remY / 30);
+        const d = remY % 30;
+        let parts = [];
+        if (y > 0) parts.push(y + (y === 1 ? ' year' : ' years'));
+        if (m > 0) parts.push(m + (m === 1 ? ' month' : ' months'));
+        if (d > 0 || parts.length === 0) parts.push(d + (d === 1 ? ' day' : ' days'));
+        return parts.join(', ') + ' (' + days + ' days)';
+    }
+
+    function calculateCore(principal, rate, totalDays, type) {
+        if (totalDays <= 0 || rate <= 0 || principal <= 0) {
+            return {
+                interest: 0,
+                total: principal,
+                breakdown: []
+            };
+        }
+
+        if (type === 'SIMPLE') {
+            const interest = (principal * rate * totalDays) / (100 * 365);
+            return {
+                interest: interest,
+                total: principal + interest,
+                breakdown: []
+            };
+        } else {
+            // Compound Interest (Annual compounding + proportional remaining days)
+            let balance = principal;
+            const fullYears = Math.floor(totalDays / 365);
+            const remDays = totalDays % 365;
+            let schedule = [];
+
+            for (let i = 1; i <= fullYears; i++) {
+                const opening = balance;
+                const yearInt = opening * (rate / 100);
+                balance += yearInt;
+                schedule.push({
+                    label: `Year ${i} (365 days)`,
+                    opening: opening,
+                    interest: yearInt,
+                    closing: balance
+                });
+            }
+
+            if (remDays > 0) {
+                const opening = balance;
+                const remInt = opening * (rate / 100) * (remDays / 365);
+                balance += remInt;
+                schedule.push({
+                    label: fullYears === 0 ? `${remDays} days` : `Partial Year (${remDays} days)`,
+                    opening: opening,
+                    interest: remInt,
+                    closing: balance
+                });
+            }
+
+            const totalInterest = balance - principal;
+            return {
+                interest: totalInterest,
+                total: balance,
+                breakdown: schedule
+            };
+        }
+    }
+
+    // Live Date Recalculation
+    function recalcDateLive() {
+        const p = parseFloat(document.getElementById('datePrincipal').value) || 0;
+        const r = parseFloat(document.getElementById('dateRate').value) || 0;
+        const s = document.getElementById('dateStart').value;
+        const e = document.getElementById('dateEnd').value;
+        const errorElem = document.getElementById('dateError');
+
+        if (!s || !e) return;
+        const days = calcDaysDifference(s, e);
+
+        if (days < 0) {
+            errorElem.style.display = 'block';
+            document.getElementById('dateDurationBanner').innerHTML = '<strong>Error:</strong> End date earlier than start date.';
+            document.getElementById('dateLiveBox').style.display = 'none';
+            return;
+        } else {
+            errorElem.style.display = 'none';
+        }
+
+        const breakdown = formatDaysBreakdown(days);
+        document.getElementById('dateDurationBanner').innerHTML = `<strong>Total Duration:</strong> ${days} days (${breakdown})`;
+
+        if (p > 0 && r >= 0 && days >= 0) {
+            const res = calculateCore(p, r, days, selectedInterestType);
+            document.getElementById('dateLiveText').innerText = `Interest: ${formatIndian(res.interest)} • Total: ${formatIndian(res.total)}`;
+            document.getElementById('dateLiveBox').style.display = 'flex';
+        } else {
+            document.getElementById('dateLiveBox').style.display = 'none';
+        }
+    }
+
+    function submitDateCalculation() {
+        const p = parseFloat(document.getElementById('datePrincipal').value);
+        const r = parseFloat(document.getElementById('dateRate').value);
+        const s = document.getElementById('dateStart').value;
+        const e = document.getElementById('dateEnd').value;
+
+        if (!p || p <= 0) { alert('Please enter a valid Principal Amount greater than 0'); return; }
+        if (isNaN(r) || r < 0) { alert('Please enter an Annual Interest Rate of 0 or greater'); return; }
+        if (calcDaysDifference(s, e) < 0) { alert('End date cannot be earlier than start date'); return; }
+
+        const days = calcDaysDifference(s, e);
+        const res = calculateCore(p, r, days, selectedInterestType);
+        displayResults({
+            principal: p,
+            rate: r,
+            days: days,
+            dates: `${s} to ${e}`,
+            type: selectedInterestType,
+            interest: res.interest,
+            total: res.total,
+            breakdown: res.breakdown
+        });
+    }
+
+    function resetDateInputs() {
+        document.getElementById('datePrincipal').value = '';
+        document.getElementById('dateRate').value = '';
+        document.getElementById('dateLiveBox').style.display = 'none';
+        recalcDateLive();
+    }
+
+    // Live Period Recalculation
+    function recalcPeriodLive() {
+        const p = parseFloat(document.getElementById('periodPrincipal').value) || 0;
+        const r = parseFloat(document.getElementById('periodRate').value) || 0;
+        const y = parseInt(document.getElementById('periodYears').value) || 0;
+        const m = parseInt(document.getElementById('periodMonths').value) || 0;
+        const d = parseInt(document.getElementById('periodDays').value) || 0;
+
+        const totalDays = (y * 365) + (m * 30) + d;
+        const breakdown = formatDaysBreakdown(totalDays);
+        document.getElementById('periodDurationBanner').innerHTML = `<strong>Total Duration:</strong> ${totalDays} days (${breakdown})`;
+
+        if (p > 0 && r >= 0 && totalDays > 0) {
+            const res = calculateCore(p, r, totalDays, selectedInterestType);
+            document.getElementById('periodLiveText').innerText = `Interest: ${formatIndian(res.interest)} • Total: ${formatIndian(res.total)}`;
+            document.getElementById('periodLiveBox').style.display = 'flex';
+        } else {
+            document.getElementById('periodLiveBox').style.display = 'none';
+        }
+    }
+
+    function setPreset(y, m, d) {
+        document.getElementById('periodYears').value = y;
+        document.getElementById('periodMonths').value = m;
+        document.getElementById('periodDays').value = d;
+        recalcPeriodLive();
+    }
+
+    function submitPeriodCalculation() {
+        const p = parseFloat(document.getElementById('periodPrincipal').value);
+        const r = parseFloat(document.getElementById('periodRate').value);
+        const y = parseInt(document.getElementById('periodYears').value) || 0;
+        const m = parseInt(document.getElementById('periodMonths').value) || 0;
+        const d = parseInt(document.getElementById('periodDays').value) || 0;
+
+        const totalDays = (y * 365) + (m * 30) + d;
+
+        if (!p || p <= 0) { alert('Please enter a valid Principal Amount greater than 0'); return; }
+        if (isNaN(r) || r < 0) { alert('Please enter an Annual Interest Rate of 0 or greater'); return; }
+        if (totalDays <= 0) { alert('Please enter a time period of at least 1 day'); return; }
+
+        const res = calculateCore(p, r, totalDays, selectedInterestType);
+        displayResults({
+            principal: p,
+            rate: r,
+            days: totalDays,
+            dates: null,
+            type: selectedInterestType,
+            interest: res.interest,
+            total: res.total,
+            breakdown: res.breakdown
+        });
+    }
+
+    function resetPeriodInputs() {
+        document.getElementById('periodPrincipal').value = '';
+        document.getElementById('periodRate').value = '';
+        document.getElementById('periodYears').value = 0;
+        document.getElementById('periodMonths').value = 0;
+        document.getElementById('periodDays').value = 0;
+        document.getElementById('periodLiveBox').style.display = 'none';
+        recalcPeriodLive();
+    }
+
+    // Display Results Screen
+    function displayResults(data) {
+        lastResult = data;
+        setBar('Calculation Results', true);
+        showScreen('screenResults');
+
+        document.getElementById('resTotalAmount').innerText = formatIndian(data.total);
+        document.getElementById('resSummarySub').innerText = `Principal (${formatIndian(data.principal)}) + Interest (${formatIndian(data.interest)})`;
+        document.getElementById('resTotalInterest').innerText = formatIndian(data.interest);
+        document.getElementById('resPrincipal').innerText = formatIndian(data.principal);
+        document.getElementById('resRate').innerText = data.rate + '%';
+        document.getElementById('resType').innerText = data.type === 'SIMPLE' ? 'Simple Interest' : 'Compound Interest';
+        document.getElementById('resDays').innerText = `${data.days} Days (${formatDaysBreakdown(data.days)})`;
+        document.getElementById('resBottomTotal').innerText = formatIndian(data.total);
+
+        if (data.dates) {
+            document.getElementById('rowDates').style.display = 'flex';
+            document.getElementById('resDates').innerText = data.dates;
+        } else {
+            document.getElementById('rowDates').style.display = 'none';
+        }
+
+        // Compounding Breakdown Table
+        const scheduleCard = document.getElementById('scheduleCard');
+        const scheduleItems = document.getElementById('scheduleItems');
+        scheduleItems.innerHTML = '';
+
+        if (data.type === 'COMPOUND' && data.breakdown && data.breakdown.length > 0) {
+            scheduleCard.style.display = 'block';
+            data.breakdown.forEach(item => {
+                const box = document.createElement('div');
+                box.className = 'schedule-box';
+                box.innerHTML = `
+                    <div style="font-weight: 700; color: var(--primary); margin-bottom: 2px;">${item.label}</div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Opening: ${formatIndian(item.opening)}</span>
+                        <span style="font-weight: 700; color: var(--secondary);">+ Int: ${formatIndian(item.interest)}</span>
+                    </div>
+                    <div>Closing: <strong>${formatIndian(item.closing)}</strong></div>
+                `;
+                scheduleItems.appendChild(box);
+            });
+        } else {
+            scheduleCard.style.display = 'none';
+        }
+    }
+</script>
+
+</body>
+</html>
