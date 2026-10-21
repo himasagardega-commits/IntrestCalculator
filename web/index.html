@@ -571,9 +571,12 @@
                 <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 10px; color: var(--text-dark);">Calculation Details</h3>
                 <div class="detail-row"><span class="detail-label">Principal Amount</span><span class="detail-val" id="resPrincipal">₹0.00</span></div>
                 <div class="detail-row"><span class="detail-label">Annual Rate</span><span class="detail-val" id="resRate">0%</span></div>
+                <div class="detail-row"><span class="detail-label">Monthly Rate</span><span class="detail-val" id="resMonthlyRate">0% / mo</span></div>
+                <div class="detail-row"><span class="detail-label">Interest / Month</span><span class="detail-val" id="resInterestPerMonth">₹0.00</span></div>
                 <div class="detail-row"><span class="detail-label">Interest Type</span><span class="detail-val" id="resType">Simple Interest</span></div>
                 <div class="detail-row" id="rowDates" style="display: none;"><span class="detail-label">Date Range</span><span class="detail-val" id="resDates">-</span></div>
-                <div class="detail-row"><span class="detail-label">Total Duration</span><span class="detail-val" id="resDays">0 Days</span></div>
+                <div class="detail-row"><span class="detail-label">Total Days</span><span class="detail-val" id="resDays">0 Days</span></div>
+                <div class="detail-row"><span class="detail-label">Converted Duration</span><span class="detail-val" id="resMonths">0 Months, 0 Days</span></div>
                 <div class="detail-row" style="border-bottom: none; margin-top: 6px;"><span class="detail-label" style="font-weight: 700;">Final Total</span><span class="detail-val" style="color: var(--primary); font-size: 16px;" id="resBottomTotal">₹0.00</span></div>
             </div>
 
@@ -711,6 +714,28 @@
         return Math.floor(diffTime / (1000 * 60 * 60 * 24));
     }
 
+    function convertDaysToMonths(totalDays) {
+        const fullMonths = Math.floor(totalDays / 30);
+        const remainingDays = totalDays % 30;
+        const years = Math.floor(fullMonths / 12);
+        const monthsInYear = fullMonths % 12;
+        const remFraction = remainingDays > 0 ? (remainingDays / 30) : 0;
+        const totalMonthsFraction = fullMonths + remFraction;
+        const monthsDisplay = remainingDays > 0 
+            ? `${fullMonths} months, ${remainingDays} days (${totalMonthsFraction.toFixed(2)} months)` 
+            : `${fullMonths} months`;
+
+        return {
+            totalDays,
+            fullMonths,
+            remainingDays,
+            years,
+            monthsInYear,
+            totalMonthsFraction,
+            monthsDisplay
+        };
+    }
+
     function formatDaysBreakdown(days) {
         if (days <= 0) return '0 days';
         const y = Math.floor(days / 365);
@@ -721,60 +746,80 @@
         if (y > 0) parts.push(y + (y === 1 ? ' year' : ' years'));
         if (m > 0) parts.push(m + (m === 1 ? ' month' : ' months'));
         if (d > 0 || parts.length === 0) parts.push(d + (d === 1 ? ' day' : ' days'));
-        return parts.join(', ') + ' (' + days + ' days)';
+        return parts.join(', ');
     }
 
     function calculateCore(principal, rate, totalDays, type) {
+        const monthData = convertDaysToMonths(totalDays);
+        const monthlyRate = rate / 12;
+        const monthlyRateFraction = monthlyRate / 100;
+        const monthlyInterestAmount = principal * monthlyRateFraction;
+
         if (totalDays <= 0 || rate <= 0 || principal <= 0) {
             return {
                 interest: 0,
                 total: principal,
+                monthlyRate: monthlyRate,
+                monthlyInterestAmount: 0,
+                monthData: monthData,
                 breakdown: []
             };
         }
 
         if (type === 'SIMPLE') {
-            const interest = (principal * rate * totalDays) / (100 * 365);
+            const rawInterest = principal * monthlyRateFraction * monthData.totalMonthsFraction;
+            const interest = Math.round(rawInterest * 100) / 100;
             return {
                 interest: interest,
-                total: principal + interest,
+                total: Math.round((principal + interest) * 100) / 100,
+                monthlyRate: monthlyRate,
+                monthlyInterestAmount: monthlyInterestAmount,
+                monthData: monthData,
                 breakdown: []
             };
         } else {
-            // Compound Interest (Annual compounding + proportional remaining days)
+            // Compound Interest (Annual compounding every 12 months + proportional remaining months & days)
             let balance = principal;
-            const fullYears = Math.floor(totalDays / 365);
-            const remDays = totalDays % 365;
+            const full12MonthYears = monthData.years;
+            const remMonthsInYear = monthData.monthsInYear;
+            const remDays = monthData.remainingDays;
             let schedule = [];
 
-            for (let i = 1; i <= fullYears; i++) {
+            for (let i = 1; i <= full12MonthYears; i++) {
                 const opening = balance;
                 const yearInt = opening * (rate / 100);
                 balance += yearInt;
                 schedule.push({
-                    label: `Year ${i} (365 days)`,
+                    label: `Year ${i} (12 months / 360 days)`,
                     opening: opening,
                     interest: yearInt,
                     closing: balance
                 });
             }
 
-            if (remDays > 0) {
+            if (remMonthsInYear > 0 || remDays > 0) {
                 const opening = balance;
-                const remInt = opening * (rate / 100) * (remDays / 365);
+                const remFraction = remMonthsInYear + (remDays / 30);
+                const remInt = balance * monthlyRateFraction * remFraction;
                 balance += remInt;
+                const remLabel = remDays > 0 
+                    ? `Remaining (${remMonthsInYear}m ${remDays}d)` 
+                    : `Remaining (${remMonthsInYear} months)`;
                 schedule.push({
-                    label: fullYears === 0 ? `${remDays} days` : `Partial Year (${remDays} days)`,
+                    label: full12MonthYears === 0 ? remLabel : `Remaining ${remLabel}`,
                     opening: opening,
                     interest: remInt,
                     closing: balance
                 });
             }
 
-            const totalInterest = balance - principal;
+            const totalInterest = Math.round((balance - principal) * 100) / 100;
             return {
                 interest: totalInterest,
-                total: balance,
+                total: Math.round((principal + totalInterest) * 100) / 100,
+                monthlyRate: monthlyRate,
+                monthlyInterestAmount: monthlyInterestAmount,
+                monthData: monthData,
                 breakdown: schedule
             };
         }
@@ -800,8 +845,8 @@
             errorElem.style.display = 'none';
         }
 
-        const breakdown = formatDaysBreakdown(days);
-        document.getElementById('dateDurationBanner').innerHTML = `<strong>Total Duration:</strong> ${days} days (${breakdown})`;
+        const monthData = convertDaysToMonths(days);
+        document.getElementById('dateDurationBanner').innerHTML = `<strong>Total:</strong> ${days} days • <strong>Monthly Basis:</strong> ${monthData.monthsDisplay}`;
 
         if (p > 0 && r >= 0 && days >= 0) {
             const res = calculateCore(p, r, days, selectedInterestType);
@@ -832,6 +877,9 @@
             type: selectedInterestType,
             interest: res.interest,
             total: res.total,
+            monthlyRate: res.monthlyRate,
+            monthlyInterestAmount: res.monthlyInterestAmount,
+            monthData: res.monthData,
             breakdown: res.breakdown
         });
     }
@@ -852,8 +900,8 @@
         const d = parseInt(document.getElementById('periodDays').value) || 0;
 
         const totalDays = (y * 365) + (m * 30) + d;
-        const breakdown = formatDaysBreakdown(totalDays);
-        document.getElementById('periodDurationBanner').innerHTML = `<strong>Total Duration:</strong> ${totalDays} days (${breakdown})`;
+        const monthData = convertDaysToMonths(totalDays);
+        document.getElementById('periodDurationBanner').innerHTML = `<strong>Total:</strong> ${totalDays} days • <strong>Monthly Basis:</strong> ${monthData.monthsDisplay}`;
 
         if (p > 0 && r >= 0 && totalDays > 0) {
             const res = calculateCore(p, r, totalDays, selectedInterestType);
@@ -893,6 +941,9 @@
             type: selectedInterestType,
             interest: res.interest,
             total: res.total,
+            monthlyRate: res.monthlyRate,
+            monthlyInterestAmount: res.monthlyInterestAmount,
+            monthData: res.monthData,
             breakdown: res.breakdown
         });
     }
@@ -913,13 +964,18 @@
         setBar('Calculation Results', true);
         showScreen('screenResults');
 
+        const mData = data.monthData || convertDaysToMonths(data.days);
+
         document.getElementById('resTotalAmount').innerText = formatIndian(data.total);
         document.getElementById('resSummarySub').innerText = `Principal (${formatIndian(data.principal)}) + Interest (${formatIndian(data.interest)})`;
         document.getElementById('resTotalInterest').innerText = formatIndian(data.interest);
         document.getElementById('resPrincipal').innerText = formatIndian(data.principal);
-        document.getElementById('resRate').innerText = data.rate + '%';
+        document.getElementById('resRate').innerText = data.rate + '% p.a.';
+        document.getElementById('resMonthlyRate').innerText = (data.rate / 12).toFixed(4).replace(/\.?0+$/, '') + '% / mo';
+        document.getElementById('resInterestPerMonth').innerText = formatIndian(data.principal * ((data.rate / 12) / 100)) + ' / mo';
         document.getElementById('resType').innerText = data.type === 'SIMPLE' ? 'Simple Interest' : 'Compound Interest';
-        document.getElementById('resDays').innerText = `${data.days} Days (${formatDaysBreakdown(data.days)})`;
+        document.getElementById('resDays').innerText = `${data.days} Days`;
+        document.getElementById('resMonths').innerText = `${mData.fullMonths} Months, ${mData.remainingDays} Days (${mData.totalMonthsFraction.toFixed(2)} mo)`;
         document.getElementById('resBottomTotal').innerText = formatIndian(data.total);
 
         if (data.dates) {

@@ -26,64 +26,66 @@ class InterestCalculatorEngineTest {
         assertEquals(BigDecimal("10000.00"), resultCompound.totalAmount)
     }
 
-    // 2. Simple interest for 365 days.
+    // 2. Simple interest for 12 months (360 days) @ 12% p.a. (= 1% per month).
     @Test
-    fun testCase2_SimpleInterest_365Days() {
-        // Principal = 10,000, Rate = 12%, Days = 365
-        // Interest = 10000 * 12 * 365 / (100 * 365) = 1,200.00
+    fun testCase2_SimpleInterest_12Months() {
+        // Principal = 10,000, Annual Rate = 12% (1% per month), 360 days = 12 months
+        // Interest = 10,000 * 1% * 12 = 1,200.00
         val principal = BigDecimal("10000")
         val rate = BigDecimal("12")
-        val result = InterestCalculatorEngine.calculateSimpleInterest(principal, rate, 365L)
+        val result = InterestCalculatorEngine.calculateSimpleInterest(principal, rate, 360L)
         assertEquals(BigDecimal("1200.00"), result.totalInterest)
         assertEquals(BigDecimal("11200.00"), result.totalAmount)
+        assertEquals(12L, result.fullMonths)
+        assertEquals(0L, result.remainingDays)
     }
 
-    // 3. Simple interest for 730 days: interest must not compound.
+    // 3. Simple interest for 24 months (720 days): interest must not compound.
     @Test
-    fun testCase3_SimpleInterest_730Days_DoesNotCompound() {
-        // Principal = 10,000, Rate = 12%, Days = 730
-        // Expected: Interest = 2,400.00, Total = 12,400.00
+    fun testCase3_SimpleInterest_24Months_DoesNotCompound() {
+        // Principal = 10,000, Rate = 12% p.a. (1% p.m.), 720 days = 24 months
+        // Expected: Interest = 10,000 * 1% * 24 = 2,400.00, Total = 12,400.00
         val principal = BigDecimal("10000")
         val rate = BigDecimal("12")
-        val result = InterestCalculatorEngine.calculateSimpleInterest(principal, rate, 730L)
+        val result = InterestCalculatorEngine.calculateSimpleInterest(principal, rate, 720L)
         assertEquals(BigDecimal("2400.00"), result.totalInterest)
         assertEquals(BigDecimal("12400.00"), result.totalAmount)
     }
 
-    // 4. Compound interest for 365 days.
+    // 4. Compound interest for 12 months (360 days).
     @Test
-    fun testCase4_CompoundInterest_365Days() {
-        // Principal = 10,000, Rate = 12%, Days = 365
-        // 1 full year = 1,200.00 interest, Total = 11,200.00
+    fun testCase4_CompoundInterest_12Months() {
+        // Principal = 10,000, Rate = 12% p.a., 12 months = 1,200.00 interest
         val principal = BigDecimal("10000")
         val rate = BigDecimal("12")
-        val result = InterestCalculatorEngine.calculateCompoundInterest(principal, rate, 365L)
+        val result = InterestCalculatorEngine.calculateCompoundInterest(principal, rate, 360L)
         assertEquals(BigDecimal("1200.00"), result.totalInterest)
         assertEquals(BigDecimal("11200.00"), result.totalAmount)
     }
 
-    // 5. Compound interest for 400 days: one full compounding period and 35 extra days.
+    // 5. Compound interest for 400 days: 13 months and 10 days (1 full 12-month year + 1 mo 10 days).
     @Test
-    fun testCase5_CompoundInterest_400Days() {
-        // First 365 days: 10,000 * 12% = 1,200 (Balance = 11,200)
-        // Remaining 35 days: 11,200 * 12% * 35 / 365 = 128.8767...
-        // Total interest = 1,328.88, Total amount = 11,328.88
+    fun testCase5_CompoundInterest_400Days_MonthlyCompounding() {
+        // 400 days = 13 months, 10 days = 1 year (12 mo) + partial (1 mo, 10 days = 1.3333... mo)
+        // Year 1 (12 months): 10,000 * 12% = 1,200 (Balance = 11,200)
+        // Remaining 1 mo 10 days: 11,200 * 1% * (1 + 10/30) = 149.33
+        // Total interest = 1,349.33, Total amount = 11,349.33
         val principal = BigDecimal("10000")
         val rate = BigDecimal("12")
         val result = InterestCalculatorEngine.calculateCompoundInterest(principal, rate, 400L)
-        assertEquals(BigDecimal("1328.88"), result.totalInterest)
-        assertEquals(BigDecimal("11328.88"), result.totalAmount)
+        assertEquals(BigDecimal("1349.33"), result.totalInterest)
+        assertEquals(BigDecimal("11349.33"), result.totalAmount)
     }
 
-    // 6. Compound interest for 730 days: two complete compounding periods.
+    // 6. Compound interest for 24 months (720 days): two complete 12-month compounding periods.
     @Test
-    fun testCase6_CompoundInterest_730Days() {
-        // Year 1: 10,000 + 1,200 = 11,200
-        // Year 2: 11,200 + 1,344 = 12,544
+    fun testCase6_CompoundInterest_24Months() {
+        // Year 1 (12 mo): 10,000 + 1,200 = 11,200
+        // Year 2 (12 mo): 11,200 + 1,344 = 12,544
         // Expected total balance: 12,544.00, Interest: 2,544.00
         val principal = BigDecimal("10000")
         val rate = BigDecimal("12")
-        val result = InterestCalculatorEngine.calculateCompoundInterest(principal, rate, 730L)
+        val result = InterestCalculatorEngine.calculateCompoundInterest(principal, rate, 720L)
         assertEquals(BigDecimal("2544.00"), result.totalInterest)
         assertEquals(BigDecimal("12544.00"), result.totalAmount)
     }
@@ -102,20 +104,16 @@ class InterestCalculatorEngineTest {
         assertEquals(BigDecimal("50000.00"), resultCompound.totalAmount)
     }
 
-    // 8. One-day duration.
+    // 8. One-day duration with monthly calculation.
     @Test
     fun testCase8_OneDayDuration() {
-        // Principal = 36,500, Rate = 10%, Days = 1
-        // Interest = 36500 * 10 * 1 / (100 * 365) = 10.00
-        val principal = BigDecimal("36500")
-        val rate = BigDecimal("10")
+        // Principal = 30,000, Rate = 12% p.a. (1% p.m. = ₹300/mo)
+        // 1 day = 1/30 month = ₹300 / 30 = ₹10.00
+        val principal = BigDecimal("30000")
+        val rate = BigDecimal("12")
         val resultSimple = InterestCalculatorEngine.calculateSimpleInterest(principal, rate, 1L)
         assertEquals(BigDecimal("10.00"), resultSimple.totalInterest)
-        assertEquals(BigDecimal("36510.00"), resultSimple.totalAmount)
-
-        val resultCompound = InterestCalculatorEngine.calculateCompoundInterest(principal, rate, 1L)
-        assertEquals(BigDecimal("10.00"), resultCompound.totalInterest)
-        assertEquals(BigDecimal("36510.00"), resultCompound.totalAmount)
+        assertEquals(BigDecimal("30010.00"), resultSimple.totalAmount)
     }
 
     // 9. End date equal to start date.
@@ -136,39 +134,47 @@ class InterestCalculatorEngineTest {
         }
     }
 
-    // 11. Specified period of 45 days.
+    // 11. Specified period of 45 days (1 month, 15 days = 1.5 months).
     @Test
     fun testCase11_SpecifiedPeriod_45Days() {
-        val days = InterestCalculatorEngine.convertPeriodToDays(years = 0, months = 0, days = 45)
-        assertEquals(45L, days)
+        val conv = InterestCalculatorEngine.convertDaysToMonths(45L)
+        assertEquals(1L, conv.fullMonths)
+        assertEquals(15L, conv.remainingDays)
+
+        // Principal = 10,000, 12% p.a. (1% p.m.) -> 1.5 months = 150.00
+        val res = InterestCalculatorEngine.calculateSimpleInterest(BigDecimal("10000"), BigDecimal("12"), 45L)
+        assertEquals(BigDecimal("150.00"), res.totalInterest)
     }
 
-    // 12. Specified period of 6 months.
+    // 12. Specified period of 6 months (180 days).
     @Test
     fun testCase12_SpecifiedPeriod_6Months() {
-        // 6 months * 30 days = 180 days
-        val days = InterestCalculatorEngine.convertPeriodToDays(years = 0, months = 6, days = 0)
-        assertEquals(180L, days)
+        val conv = InterestCalculatorEngine.convertDaysToMonths(180L)
+        assertEquals(6L, conv.fullMonths)
+        assertEquals(0L, conv.remainingDays)
+
+        val res = InterestCalculatorEngine.calculateSimpleInterest(BigDecimal("10000"), BigDecimal("12"), 180L)
+        assertEquals(BigDecimal("600.00"), res.totalInterest)
     }
 
-    // 13. Specified period of 2 years.
+    // 13. Specified period of 2 years (730 days -> 24 months, 10 days).
     @Test
     fun testCase13_SpecifiedPeriod_2Years() {
-        // 2 years * 365 days = 730 days
-        val days = InterestCalculatorEngine.convertPeriodToDays(years = 2, months = 0, days = 0)
-        assertEquals(730L, days)
+        val conv = InterestCalculatorEngine.convertDaysToMonths(730L)
+        assertEquals(24L, conv.fullMonths)
+        assertEquals(10L, conv.remainingDays)
     }
 
     // 14. Very large principal amounts and interest rates.
     @Test
     fun testCase14_VeryLargeAmountsAndRates() {
         val principal = BigDecimal("100000000000000.00") // 100 Trillion
-        val rate = BigDecimal("50.00")
-        val days = 365L * 5 // 5 years
+        val rate = BigDecimal("48.00") // 4% per month
+        val days = 360L * 5 // 5 years = 60 months
 
         val resultSimple = InterestCalculatorEngine.calculateSimpleInterest(principal, rate, days)
-        assertEquals(BigDecimal("250000000000000.00"), resultSimple.totalInterest)
-        assertEquals(BigDecimal("350000000000000.00"), resultSimple.totalAmount)
+        assertEquals(BigDecimal("240000000000000.00"), resultSimple.totalInterest)
+        assertEquals(BigDecimal("340000000000000.00"), resultSimple.totalAmount)
 
         val resultCompound = InterestCalculatorEngine.calculateCompoundInterest(principal, rate, days)
         assertTrue(resultCompound.totalInterest > BigDecimal.ZERO)
@@ -215,12 +221,5 @@ class InterestCalculatorEngineTest {
         assertEquals("₹1,00,000.00", InterestCalculatorEngine.formatIndianCurrency(BigDecimal("100000")))
         assertEquals("₹12,34,567.89", InterestCalculatorEngine.formatIndianCurrency(BigDecimal("1234567.89")))
         assertEquals("₹1,00,00,000.00", InterestCalculatorEngine.formatIndianCurrency(BigDecimal("10000000")))
-    }
-
-    // Test combined specified period: 1 year and 90 days = 365 + 90 = 455 days
-    @Test
-    fun testCombinedSpecifiedPeriod() {
-        val days = InterestCalculatorEngine.convertPeriodToDays(years = 1, months = 0, days = 90)
-        assertEquals(455L, days)
     }
 }

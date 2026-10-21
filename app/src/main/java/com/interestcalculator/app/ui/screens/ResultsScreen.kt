@@ -283,9 +283,22 @@ fun ResultsScreen(
                     }
 
                     DetailRow(
-                        label = "Total Duration",
-                        value = "${result.totalDays} Days",
-                        subtitle = result.yearsMonthsDaysDisplay
+                        label = "Total Days",
+                        value = "${result.totalDays} Days"
+                    )
+                    DetailRow(
+                        label = "Converted Duration",
+                        value = "${result.fullMonths} Months, ${result.remainingDays} Days",
+                        subtitle = "${result.totalMonthsFraction.setScale(2, java.math.RoundingMode.HALF_UP)} months total"
+                    )
+                    DetailRow(
+                        label = "Monthly Rate",
+                        value = "${result.monthlyRate}% / mo",
+                        subtitle = "(${result.annualRate}% ÷ 12 months)"
+                    )
+                    DetailRow(
+                        label = "Interest per Month",
+                        value = InterestCalculatorEngine.formatIndianCurrency(result.monthlyInterestAmount)
                     )
 
                     HorizontalDivider(
