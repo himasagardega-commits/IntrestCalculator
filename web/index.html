@@ -409,9 +409,9 @@
             <div style="text-align: center; margin: 12px 0; font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 1px;">OR ALTERNATIVE MODE</div>
 
             <div class="card card-clickable" onclick="openPeriodMode()" style="border-left: 5px solid #6B46C1;">
-                <div style="font-size: 11px; font-weight: 700; color: #6B46C1; text-transform: uppercase; margin-bottom: 4px;">Standardized Days</div>
-                <h3 style="font-size: 18px; font-weight: 700; color: var(--text-dark); margin-bottom: 4px;">Specified Time Period</h3>
-                <p style="font-size: 13px; color: var(--text-muted);">Calculate with fixed duration (days, months, years) without dates.</p>
+                <div style="font-size: 11px; font-weight: 700; color: #6B46C1; text-transform: uppercase; margin-bottom: 4px;">Loan Agreement & Paytime</div>
+                <h3 style="font-size: 18px; font-weight: 700; color: var(--text-dark); margin-bottom: 4px;">Special Time Period</h3>
+                <p style="font-size: 13px; color: var(--text-muted);">Agreed return duration (by borrower) vs. actual paytime duration (borrow date to paying date).</p>
             </div>
 
             <div class="card" style="margin-top: auto; display: flex; justify-content: space-around; text-align: center; padding: 12px;">
@@ -488,13 +488,14 @@
             </div>
         </div>
 
-        <!-- SCREEN 3: SPECIFIED TIME PERIOD (MODE B) -->
+        <!-- SCREEN 3: SPECIAL TIME PERIOD (AGREED VS PAYTIME) -->
         <div id="screenPeriod" class="screen">
             <div class="btn-group-toggle">
                 <button id="toggleSimplePeriod" class="toggle-btn active" onclick="setPeriodInterestType('SIMPLE')">Simple Interest</button>
                 <button id="toggleCompoundPeriod" class="toggle-btn" onclick="setPeriodInterestType('COMPOUND')">Compound Interest</button>
             </div>
 
+            <!-- Principal & Rate Card -->
             <div class="card">
                 <div class="input-group">
                     <label class="input-label">Principal Amount (₹)</label>
@@ -515,39 +516,79 @@
                         <span class="suffix" id="periodRateSuffix">% / mo</span>
                     </div>
                 </div>
+            </div>
 
-                <label class="input-label">Time Period Duration</label>
+            <!-- Card 1: Borrow Date & Initial Agreement (how many days/months borrower promised to return) -->
+            <div class="card">
+                <div style="margin-bottom: 10px;">
+                    <strong style="color: var(--primary); font-size: 15px;">1. Borrow Date & Initial Agreement</strong>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">How many days/months borrower promised to return</div>
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Borrow Date (Loan Taken Date)</label>
+                    <div class="input-box">
+                        <input type="date" id="periodBorrowDate" onchange="onBorrowDateChanged()">
+                    </div>
+                </div>
+
+                <label class="input-label">Agreed Return Duration (Borrower Promised)</label>
                 <div style="display: flex; gap: 8px;">
                     <div class="input-box" style="flex: 1;">
-                        <input type="number" id="periodYears" placeholder="0" value="0" oninput="recalcPeriodLive()">
+                        <input type="number" id="periodAgreedYears" placeholder="0" value="0" oninput="onAgreedDurationChanged()">
                         <span class="suffix">yr</span>
                     </div>
                     <div class="input-box" style="flex: 1;">
-                        <input type="number" id="periodMonths" placeholder="0" value="0" oninput="recalcPeriodLive()">
+                        <input type="number" id="periodAgreedMonths" placeholder="0" value="6" oninput="onAgreedDurationChanged()">
                         <span class="suffix">mo</span>
                     </div>
                     <div class="input-box" style="flex: 1;">
-                        <input type="number" id="periodDays" placeholder="0" value="0" oninput="recalcPeriodLive()">
+                        <input type="number" id="periodAgreedDays" placeholder="0" value="0" oninput="onAgreedDurationChanged()">
                         <span class="suffix">d</span>
                     </div>
                 </div>
 
-                <div class="presets">
-                    <span class="chip" onclick="setPreset(0,0,45)">45 Days</span>
-                    <span class="chip" onclick="setPreset(0,6,0)">6 Months</span>
-                    <span class="chip" onclick="setPreset(1,0,0)">1 Year</span>
-                    <span class="chip" onclick="setPreset(2,0,0)">2 Years</span>
-                    <span class="chip" onclick="setPreset(1,0,90)">1 Yr & 90 D</span>
+                <div class="presets" style="margin-top: 8px;">
+                    <span class="chip" onclick="setAgreedPreset(0,1,0)">1 Month</span>
+                    <span class="chip" onclick="setAgreedPreset(0,3,0)">3 Months</span>
+                    <span class="chip" onclick="setAgreedPreset(0,6,0)">6 Months</span>
+                    <span class="chip" onclick="setAgreedPreset(1,0,0)">1 Year</span>
                 </div>
 
-                <div class="info-banner" id="periodDurationBanner">
-                    <strong>Fixed-Duration:</strong> 1 Year = 365 Days • 1 Month = 30 Days.
+                <div class="info-banner" id="agreedDueDateBanner" style="margin-top: 10px; background: rgba(11, 79, 108, 0.08); border-color: rgba(11, 79, 108, 0.25);">
+                    📅 <strong>Promised Return Date:</strong> <span id="agreedDueDateText">-</span>
                 </div>
+            </div>
+
+            <!-- Card 2: Repayment Date & Paytime Duration -->
+            <div class="card">
+                <div style="margin-bottom: 10px;">
+                    <strong style="color: var(--secondary); font-size: 15px;">2. Repayment Date (Paytime Duration)</strong>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Duration is calculated from borrow date to paying date</div>
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Paying Date (Repayment)</label>
+                    <div class="input-box">
+                        <input type="date" id="periodPayingDate" onchange="onPayingDateChanged()">
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px; margin: 8px 0;">
+                    <input type="checkbox" id="checkPeriodPayToday" checked onchange="togglePeriodPayToday(this.checked)">
+                    <label for="checkPeriodPayToday" style="font-size: 13px; font-weight: 500; cursor: pointer;">Repaid Today</label>
+                </div>
+
+                <div class="info-banner" id="periodPaytimeBanner" style="background: rgba(2, 128, 144, 0.08); border-color: rgba(2, 128, 144, 0.3);">
+                    ⏱️ <strong>Total Time on Paytime:</strong> <span id="periodPaytimeText">0 days</span>
+                </div>
+
+                <div id="periodStatusBadge" style="margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-weight: 600; display: none;"></div>
             </div>
 
             <div class="btn-row">
                 <button class="btn-outline" onclick="resetPeriodInputs()">Clear</button>
-                <button class="btn-primary" onclick="submitPeriodCalculation()">Calculate</button>
+                <button class="btn-primary" onclick="submitPeriodCalculation()">Calculate Full Breakdown</button>
             </div>
 
             <div id="periodLiveBox" class="live-preview" style="display: none;" onclick="submitPeriodCalculation()">
@@ -584,6 +625,18 @@
 
             <div class="card">
                 <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 10px; color: var(--text-dark);">Calculation Details</h3>
+
+                <div class="detail-row" id="rowAgreementDetails" style="display: none; flex-direction: column; align-items: flex-start; gap: 6px; background: rgba(11, 79, 108, 0.05); padding: 12px; border-radius: 12px; margin: 8px 0;">
+                    <div style="font-size: 11px; font-weight: 700; color: var(--primary); letter-spacing: 0.5px;">LOAN AGREEMENT & PAYTIME STATUS</div>
+                    <div style="width: 100%; display: flex; justify-content: space-between;"><span style="color: var(--text-muted); font-size: 13px;">Borrow Date:</span><strong id="resBorrowDate" style="font-size: 13px;">-</strong></div>
+                    <div style="width: 100%; display: flex; justify-content: space-between;"><span style="color: var(--text-muted); font-size: 13px;">Agreed Duration:</span><strong id="resAgreedDuration" style="font-size: 13px;">-</strong></div>
+                    <div style="width: 100%; display: flex; justify-content: space-between;"><span style="color: var(--text-muted); font-size: 13px;">Promised Return Date:</span><strong id="resPromisedDate" style="font-size: 13px;">-</strong></div>
+                    <div style="width: 100%; display: flex; justify-content: space-between;"><span style="color: var(--text-muted); font-size: 13px;">Paying Date:</span><strong id="resPayingDate" style="font-size: 13px;">-</strong></div>
+                    <div style="width: 100%; display: flex; justify-content: space-between;"><span style="color: var(--text-muted); font-size: 13px;">Settlement Status:</span><strong id="resPaymentStatus" style="font-size: 13px;">-</strong></div>
+                    <div id="rowAgreedInterest" style="width: 100%; display: none; justify-content: space-between;"><span style="color: var(--text-muted); font-size: 13px;">Agreed Period Interest:</span><strong id="resAgreedInterest" style="font-size: 13px;">-</strong></div>
+                    <div id="rowOverdueInterest" style="width: 100%; display: none; justify-content: space-between;"><span style="color: var(--error); font-size: 13px;">Overdue Delay Interest:</span><strong id="resOverdueInterest" style="font-size: 13px; color: var(--error);">-</strong></div>
+                </div>
+
                 <div class="detail-row"><span class="detail-label">Principal Amount</span><span class="detail-val" id="resPrincipal">₹0.00</span></div>
                 <div class="detail-row"><span class="detail-label">Annual Rate</span><span class="detail-val" id="resRate">0%</span></div>
                 <div class="detail-row"><span class="detail-label">Monthly Rate</span><span class="detail-val" id="resMonthlyRate">0% / mo</span></div>
@@ -621,10 +674,17 @@
         const today = new Date();
         const oneYearAgo = new Date();
         oneYearAgo.setFullYear(today.getFullYear() - 1);
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(today.getMonth() - 6);
 
         document.getElementById('dateEnd').value = today.toISOString().split('T')[0];
         document.getElementById('dateStart').value = oneYearAgo.toISOString().split('T')[0];
+
+        document.getElementById('periodBorrowDate').value = sixMonthsAgo.toISOString().split('T')[0];
+        document.getElementById('periodPayingDate').value = today.toISOString().split('T')[0];
+
         recalcDateLive();
+        recalcPeriodLive();
     };
 
     function setBar(title, showBack) {
@@ -648,7 +708,7 @@
 
     function openPeriodMode() {
         currentMode = 'PERIOD';
-        setBar('Specified Time Period', true);
+        setBar('Special Time Period', true);
         showScreen('screenPeriod');
         recalcPeriodLive();
     }
@@ -671,7 +731,7 @@
             setBar(selectedInterestType === 'SIMPLE' ? 'Simple Interest' : 'Compound Interest', true);
             showScreen('screenDate');
         } else {
-            setBar('Specified Time Period', true);
+            setBar('Special Time Period', true);
             showScreen('screenPeriod');
         }
     }
@@ -947,20 +1007,113 @@
         recalcDateLive();
     }
 
-    // Live Period Recalculation
+    // Live Special Period Recalculation
+    function onBorrowDateChanged() {
+        const b = document.getElementById('periodBorrowDate').value;
+        const p = document.getElementById('periodPayingDate').value;
+        if (b && p && p < b) {
+            document.getElementById('periodPayingDate').value = b;
+        }
+        recalcPeriodLive();
+    }
+
+    function onPayingDateChanged() {
+        const b = document.getElementById('periodBorrowDate').value;
+        const p = document.getElementById('periodPayingDate').value;
+        if (b && p && p < b) {
+            alert('Paying date cannot be earlier than borrow date');
+            document.getElementById('periodPayingDate').value = b;
+        }
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('checkPeriodPayToday').checked = (document.getElementById('periodPayingDate').value === todayStr);
+        recalcPeriodLive();
+    }
+
+    function togglePeriodPayToday(checked) {
+        if (checked) {
+            const today = new Date().toISOString().split('T')[0];
+            const b = document.getElementById('periodBorrowDate').value;
+            if (b > today) {
+                document.getElementById('periodBorrowDate').value = today;
+            }
+            document.getElementById('periodPayingDate').value = today;
+            recalcPeriodLive();
+        }
+    }
+
+    function setAgreedPreset(y, m, d) {
+        document.getElementById('periodAgreedYears').value = y;
+        document.getElementById('periodAgreedMonths').value = m;
+        document.getElementById('periodAgreedDays').value = d;
+        recalcPeriodLive();
+    }
+
+    function onAgreedDurationChanged() {
+        recalcPeriodLive();
+    }
+
     function recalcPeriodLive() {
         const p = parseFloat(document.getElementById('periodPrincipal').value) || 0;
         const r = parseFloat(document.getElementById('periodRate').value) || 0;
-        const y = parseInt(document.getElementById('periodYears').value) || 0;
-        const m = parseInt(document.getElementById('periodMonths').value) || 0;
-        const d = parseInt(document.getElementById('periodDays').value) || 0;
+        const bStr = document.getElementById('periodBorrowDate').value;
+        const payStr = document.getElementById('periodPayingDate').value;
 
-        const totalDays = (y * 365) + (m * 30) + d;
-        const monthData = convertDaysToMonths(totalDays);
-        document.getElementById('periodDurationBanner').innerHTML = `<strong>Total:</strong> ${totalDays} days • <strong>Monthly Basis:</strong> ${monthData.monthsDisplay}`;
+        const ay = parseInt(document.getElementById('periodAgreedYears').value) || 0;
+        const am = parseInt(document.getElementById('periodAgreedMonths').value) || 0;
+        const ad = parseInt(document.getElementById('periodAgreedDays').value) || 0;
 
-        if (p > 0 && r >= 0 && totalDays > 0) {
-            const res = calculateCore(p, r, totalDays, selectedInterestType, currentPeriodRateType);
+        if (!bStr || !payStr) return;
+
+        // Calculate Agreed Due Date
+        const bDate = new Date(bStr);
+        const agreedDueDate = new Date(bDate);
+        agreedDueDate.setFullYear(agreedDueDate.getFullYear() + ay);
+        agreedDueDate.setMonth(agreedDueDate.getMonth() + am);
+        agreedDueDate.setDate(agreedDueDate.getDate() + ad);
+        const agreedDueDateStr = agreedDueDate.toISOString().split('T')[0];
+
+        const agreedTotalDays = (ay * 365) + (am * 30) + ad;
+        let agreedParts = [];
+        if (ay > 0) agreedParts.push(ay + ' yr');
+        if (am > 0) agreedParts.push(am + ' mo');
+        if (ad > 0 || agreedParts.length === 0) agreedParts.push(ad + ' d');
+        const agreedDurationDisplay = agreedParts.join(', ') + ` (${agreedTotalDays} days)`;
+
+        document.getElementById('agreedDueDateText').innerText = `${agreedDueDateStr} (${agreedDurationDisplay})`;
+
+        // Calculate Paytime Duration = Elapsed between bStr and payStr
+        const paytimeDays = calcDaysDifference(bStr, payStr);
+        const paytimeMonthData = convertDaysToMonths(paytimeDays);
+        document.getElementById('periodPaytimeText').innerText = `${paytimeDays} days • ${paytimeMonthData.monthsDisplay}`;
+
+        // Status Badge (Overdue vs On-time vs Early)
+        const payDate = new Date(payStr);
+        const statusBadge = document.getElementById('periodStatusBadge');
+        statusBadge.style.display = 'block';
+
+        if (payDate > agreedDueDate) {
+            const lateDays = calcDaysDifference(agreedDueDateStr, payStr);
+            const lateMonthData = convertDaysToMonths(lateDays);
+            statusBadge.style.background = '#FFF3CD';
+            statusBadge.style.color = '#856404';
+            statusBadge.style.border = '1px solid #FFEBAA';
+            statusBadge.innerHTML = `⚠️ <strong>OVERDUE / DELAYED:</strong> Late by ${lateMonthData.fullMonths} mo, ${lateMonthData.remainingDays} d (${lateDays} days past agreement)`;
+        } else if (payStr === agreedDueDateStr) {
+            statusBadge.style.background = '#D4EDDA';
+            statusBadge.style.color = '#155724';
+            statusBadge.style.border = '1px solid #C3E6CB';
+            statusBadge.innerHTML = ` <strong>PAID ON TIME:</strong> Paid exactly on promised due date!`;
+        } else {
+            const earlyDays = calcDaysDifference(payStr, agreedDueDateStr);
+            const earlyMonthData = convertDaysToMonths(earlyDays);
+            statusBadge.style.background = '#D4EDDA';
+            statusBadge.style.color = '#155724';
+            statusBadge.style.border = '1px solid #C3E6CB';
+            statusBadge.innerHTML = ` <strong>PAID EARLY:</strong> Returned ${earlyMonthData.fullMonths} mo, ${earlyMonthData.remainingDays} d ahead of agreed date`;
+        }
+
+        if (p > 0 && r >= 0 && paytimeDays >= 0) {
+            const res = calculateCore(p, r, paytimeDays, selectedInterestType, currentPeriodRateType);
             document.getElementById('periodLiveText').innerText = `Interest: ${formatIndian(res.interest)} • Total: ${formatIndian(res.total)}`;
             document.getElementById('periodLiveBox').style.display = 'flex';
         } else {
@@ -968,33 +1121,76 @@
         }
     }
 
-    function setPreset(y, m, d) {
-        document.getElementById('periodYears').value = y;
-        document.getElementById('periodMonths').value = m;
-        document.getElementById('periodDays').value = d;
-        recalcPeriodLive();
-    }
-
     function submitPeriodCalculation() {
         const p = parseFloat(document.getElementById('periodPrincipal').value);
         const r = parseFloat(document.getElementById('periodRate').value);
-        const y = parseInt(document.getElementById('periodYears').value) || 0;
-        const m = parseInt(document.getElementById('periodMonths').value) || 0;
-        const d = parseInt(document.getElementById('periodDays').value) || 0;
+        const bStr = document.getElementById('periodBorrowDate').value;
+        const payStr = document.getElementById('periodPayingDate').value;
 
-        const totalDays = (y * 365) + (m * 30) + d;
+        const ay = parseInt(document.getElementById('periodAgreedYears').value) || 0;
+        const am = parseInt(document.getElementById('periodAgreedMonths').value) || 0;
+        const ad = parseInt(document.getElementById('periodAgreedDays').value) || 0;
 
         if (!p || p <= 0) { alert('Please enter a valid Principal Amount greater than 0'); return; }
         if (isNaN(r) || r < 0) { alert('Please enter an Interest Rate of 0 or greater'); return; }
-        if (totalDays <= 0) { alert('Please enter a time period of at least 1 day'); return; }
+        if (calcDaysDifference(bStr, payStr) < 0) { alert('Paying date cannot be earlier than borrow date'); return; }
 
-        const res = calculateCore(p, r, totalDays, selectedInterestType, currentPeriodRateType);
+        const paytimeDays = calcDaysDifference(bStr, payStr);
+        const res = calculateCore(p, r, paytimeDays, selectedInterestType, currentPeriodRateType);
+
+        const bDate = new Date(bStr);
+        const agreedDueDate = new Date(bDate);
+        agreedDueDate.setFullYear(agreedDueDate.getFullYear() + ay);
+        agreedDueDate.setMonth(agreedDueDate.getMonth() + am);
+        agreedDueDate.setDate(agreedDueDate.getDate() + ad);
+        const agreedDueDateStr = agreedDueDate.toISOString().split('T')[0];
+
+        const agreedTotalDays = (ay * 365) + (am * 30) + ad;
+        let agreedParts = [];
+        if (ay > 0) agreedParts.push(ay + ' yr');
+        if (am > 0) agreedParts.push(am + ' mo');
+        if (ad > 0 || agreedParts.length === 0) agreedParts.push(ad + ' d');
+        const agreedDurationDisplay = agreedParts.join(', ') + ` (${agreedTotalDays} days)`;
+
+        const payDate = new Date(payStr);
+        const isOverdue = payDate > agreedDueDate;
+        let differenceDisplay = '';
+        let agreedInterest = 0;
+        let overdueInterest = 0;
+
+        const monthlyRate = currentPeriodRateType === 'MONTH' ? r : (r / 12);
+        const agreedMonthData = convertDaysToMonths(agreedTotalDays);
+
+        if (isOverdue) {
+            const lateDays = calcDaysDifference(agreedDueDateStr, payStr);
+            const lateMonthData = convertDaysToMonths(lateDays);
+            differenceDisplay = `Overdue by ${lateMonthData.fullMonths} mo, ${lateMonthData.remainingDays} d (${lateDays} days late)`;
+            agreedInterest = simpleInterest(p, agreedMonthData.totalMonthsFraction, monthlyRate);
+            overdueInterest = simpleInterest(p, lateMonthData.totalMonthsFraction, monthlyRate);
+        } else if (payStr === agreedDueDateStr) {
+            differenceDisplay = 'Paid exactly on agreed due date';
+            agreedInterest = res.interest;
+        } else {
+            const earlyDays = calcDaysDifference(payStr, agreedDueDateStr);
+            const earlyMonthData = convertDaysToMonths(earlyDays);
+            differenceDisplay = `Paid early by ${earlyMonthData.fullMonths} mo, ${earlyMonthData.remainingDays} d (${earlyDays} days ahead)`;
+            agreedInterest = simpleInterest(p, agreedMonthData.totalMonthsFraction, monthlyRate);
+        }
+
         displayResults({
             principal: p,
             rate: r,
             rateType: currentPeriodRateType,
-            days: totalDays,
+            days: paytimeDays,
             dates: null,
+            borrowDate: bStr,
+            payingDate: payStr,
+            agreedDurationDisplay: agreedDurationDisplay,
+            agreedDueDate: agreedDueDateStr,
+            isOverdue: isOverdue,
+            differenceDisplay: differenceDisplay,
+            agreedInterest: agreedInterest,
+            overdueInterest: overdueInterest,
             type: selectedInterestType,
             interest: res.interest,
             total: res.total,
@@ -1007,11 +1203,18 @@
     }
 
     function resetPeriodInputs() {
+        const today = new Date();
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(today.getMonth() - 6);
+
         document.getElementById('periodPrincipal').value = '';
         document.getElementById('periodRate').value = '';
-        document.getElementById('periodYears').value = 0;
-        document.getElementById('periodMonths').value = 0;
-        document.getElementById('periodDays').value = 0;
+        document.getElementById('periodBorrowDate').value = sixMonthsAgo.toISOString().split('T')[0];
+        document.getElementById('periodAgreedYears').value = 0;
+        document.getElementById('periodAgreedMonths').value = 6;
+        document.getElementById('periodAgreedDays').value = 0;
+        document.getElementById('periodPayingDate').value = today.toISOString().split('T')[0];
+        document.getElementById('checkPeriodPayToday').checked = true;
         document.getElementById('periodLiveBox').style.display = 'none';
         recalcPeriodLive();
     }
@@ -1037,6 +1240,34 @@
         document.getElementById('resDays').innerText = `${data.days} Days`;
         document.getElementById('resMonths').innerText = `${mData.fullMonths} Months, ${mData.remainingDays} Days (${mData.totalMonthsFraction.toFixed(2)} mo)`;
         document.getElementById('resBottomTotal').innerText = formatIndian(data.total);
+
+        // Agreement vs Paytime Row
+        const rowAgreement = document.getElementById('rowAgreementDetails');
+        if (data.borrowDate && data.payingDate) {
+            rowAgreement.style.display = 'flex';
+            document.getElementById('resBorrowDate').innerText = data.borrowDate;
+            document.getElementById('resAgreedDuration').innerText = data.agreedDurationDisplay;
+            document.getElementById('resPromisedDate').innerText = data.agreedDueDate;
+            document.getElementById('resPayingDate').innerText = data.payingDate;
+            
+            const statusElem = document.getElementById('resPaymentStatus');
+            statusElem.innerText = data.differenceDisplay;
+            statusElem.style.color = data.isOverdue ? 'var(--error)' : 'var(--primary)';
+
+            const rowAgreed = document.getElementById('rowAgreedInterest');
+            const rowOverdue = document.getElementById('rowOverdueInterest');
+            if (data.isOverdue && data.agreedInterest && data.overdueInterest) {
+                rowAgreed.style.display = 'flex';
+                document.getElementById('resAgreedInterest').innerText = formatIndian(data.agreedInterest);
+                rowOverdue.style.display = 'flex';
+                document.getElementById('resOverdueInterest').innerText = formatIndian(data.overdueInterest);
+            } else {
+                rowAgreed.style.display = 'none';
+                rowOverdue.style.display = 'none';
+            }
+        } else {
+            rowAgreement.style.display = 'none';
+        }
 
         // Formula Card
         const formulaCard = document.getElementById('formulaCard');

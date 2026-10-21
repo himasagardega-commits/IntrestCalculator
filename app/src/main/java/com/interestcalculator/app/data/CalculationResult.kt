@@ -36,5 +36,18 @@ data class CalculationResult(
     val breakdownYears: List<CompoundingYearBreakdown> = emptyList(),
     val yearsMonthsDaysDisplay: String = "",
     val monthsDisplay: String = "",
-    val formulaDisplay: String = ""
+    val formulaDisplay: String = "",
+    val borrowDate: LocalDate? = null,
+    val payingDate: LocalDate? = null,
+    val agreedYears: Long = 0L,
+    val agreedMonths: Long = 0L,
+    val agreedDays: Long = 0L,
+    val agreedTotalDays: Long = 0L,
+    val agreedDueDate: LocalDate? = null,
+    val agreedDurationDisplay: String = "",
+    val paytimeDurationDisplay: String = "",
+    val isOverdue: Boolean = false,
+    val differenceDisplay: String = "",
+    val agreedInterest: BigDecimal? = null,
+    val overdueInterest: BigDecimal? = null
 )

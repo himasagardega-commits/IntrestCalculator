@@ -105,10 +105,13 @@ fun InterestCalculatorApp(viewModel: CalculatorViewModel) {
                 onPrincipalChanged = { viewModel.onPeriodPrincipalChanged(it) },
                 onRateChanged = { viewModel.onPeriodRateChanged(it) },
                 onRateTypeChanged = { viewModel.onRateTypeChanged(it) },
-                onYearsChanged = { viewModel.onPeriodYearsChanged(it) },
-                onMonthsChanged = { viewModel.onPeriodMonthsChanged(it) },
-                onDaysChanged = { viewModel.onPeriodDaysChanged(it) },
-                onSelectPreset = { y, m, d -> viewModel.setPeriodPreset(y, m, d) },
+                onBorrowDateChanged = { viewModel.onBorrowDateChanged(it) },
+                onAgreedYearsChanged = { viewModel.onAgreedYearsChanged(it) },
+                onAgreedMonthsChanged = { viewModel.onAgreedMonthsChanged(it) },
+                onAgreedDaysChanged = { viewModel.onAgreedDaysChanged(it) },
+                onAgreedPreset = { y, m, d -> viewModel.setAgreedPreset(y, m, d) },
+                onPayingDateChanged = { viewModel.onPayingDateChanged(it) },
+                onPayTodayToggled = { viewModel.onPayTodayToggled(it) },
                 onCalculateClicked = { viewModel.calculateAndShowResults() },
                 onResetClicked = { viewModel.resetPeriodCalculator() }
             )

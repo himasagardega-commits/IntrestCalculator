@@ -312,6 +312,157 @@ object InterestCalculatorEngine {
     }
 
     /**
+     * Calculates interest for Special Time Period mode:
+     * - Initial agreement duration (agreedYears, agreedMonths, agreedDays) set by user
+     *   represents how many days/months/years the borrower agreed to return.
+     * - Agreed Due Date = borrowDate + agreed duration.
+     * - On paytime, the actual time duration is calculated using borrowDate and payingDate.
+     * - Interest is calculated on the actual paytime duration using (P * T * R) / 100.
+     * - Provides agreed vs overdue breakdown.
+     */
+    fun calculateSpecialPeriodInterest(
+        principal: BigDecimal,
+        rate: BigDecimal,
+        rateType: RateType = RateType.PER_MONTH,
+        interestType: InterestType = InterestType.SIMPLE,
+        borrowDate: LocalDate,
+        payingDate: LocalDate,
+        agreedYears: Long,
+        agreedMonths: Long,
+        agreedDays: Long
+    ): CalculationResult {
+        validateInputs(principal, rate, 0L)
+        require(!payingDate.isBefore(borrowDate)) { "Paying date cannot be earlier than borrow date" }
+
+        val principal2Dec = principal.setScale(2, RoundingMode.HALF_UP)
+        val paytimeDays = calculateElapsedDays(borrowDate, payingDate)
+        val agreedTotalDays = convertPeriodToDays(agreedYears, agreedMonths, agreedDays)
+        val agreedDueDate = borrowDate.plusYears(agreedYears).plusMonths(agreedMonths).plusDays(agreedDays)
+
+        val monthData = convertDaysToMonths(paytimeDays)
+        val agreedMonthData = convertDaysToMonths(agreedTotalDays)
+
+        val monthlyRate: BigDecimal
+        val annualRate: BigDecimal
+        if (rateType == RateType.PER_MONTH) {
+            monthlyRate = rate.setScale(4, RoundingMode.HALF_UP)
+            annualRate = rate.multiply(TWELVE, MATH_CONTEXT).setScale(2, RoundingMode.HALF_UP)
+        } else {
+            annualRate = rate.setScale(2, RoundingMode.HALF_UP)
+            monthlyRate = rate.divide(TWELVE, MATH_CONTEXT).setScale(4, RoundingMode.HALF_UP)
+        }
+
+        val monthlyInterestAmount = principal2Dec.multiply(monthlyRate).divide(HUNDRED, MATH_CONTEXT).setScale(2, RoundingMode.HALF_UP)
+
+        val agreedDurationDisplay = buildString {
+            val parts = mutableListOf<String>()
+            if (agreedYears > 0) parts.add("$agreedYears yr")
+            if (agreedMonths > 0) parts.add("$agreedMonths mo")
+            if (agreedDays > 0 || parts.isEmpty()) parts.add("$agreedDays d")
+            append(parts.joinToString(", "))
+            append(" ($agreedTotalDays days)")
+        }
+
+        val paytimeDurationDisplay = formatDaysBreakdown(paytimeDays)
+
+        val isOverdue = payingDate.isAfter(agreedDueDate)
+        val differenceDisplay: String
+        val agreedInterest: BigDecimal
+        val overdueInterest: BigDecimal
+
+        if (isOverdue) {
+            val overdueDays = ChronoUnit.DAYS.between(agreedDueDate, payingDate)
+            val overdueMonthData = convertDaysToMonths(overdueDays)
+            differenceDisplay = "Overdue by ${overdueMonthData.fullMonths} mo, ${overdueMonthData.remainingDays} d ($overdueDays days late)"
+            agreedInterest = simpleInterest(principal, agreedMonthData.totalMonthsFraction, monthlyRate).setScale(2, RoundingMode.HALF_UP)
+            val rawOverdue = simpleInterest(principal, overdueMonthData.totalMonthsFraction, monthlyRate).setScale(2, RoundingMode.HALF_UP)
+            overdueInterest = rawOverdue
+        } else if (payingDate.isEqual(agreedDueDate)) {
+            differenceDisplay = "Paid exactly on agreed due date"
+            val total = simpleInterest(principal, monthData.totalMonthsFraction, monthlyRate).setScale(2, RoundingMode.HALF_UP)
+            agreedInterest = total
+            overdueInterest = BigDecimal("0.00")
+        } else {
+            val earlyDays = ChronoUnit.DAYS.between(payingDate, agreedDueDate)
+            val earlyMonthData = convertDaysToMonths(earlyDays)
+            differenceDisplay = "Paid early by ${earlyMonthData.fullMonths} mo, ${earlyMonthData.remainingDays} d ($earlyDays days ahead)"
+            agreedInterest = simpleInterest(principal, agreedMonthData.totalMonthsFraction, monthlyRate).setScale(2, RoundingMode.HALF_UP)
+            overdueInterest = BigDecimal("0.00")
+        }
+
+        if (interestType == InterestType.SIMPLE) {
+            val rawTotalInterest = if (paytimeDays == 0L || rate.compareTo(BigDecimal.ZERO) == 0) {
+                BigDecimal("0.00")
+            } else {
+                simpleInterest(principal, monthData.totalMonthsFraction, monthlyRate)
+            }
+            val totalInterest = rawTotalInterest.setScale(2, RoundingMode.HALF_UP)
+            val totalAmount = principal2Dec.add(totalInterest)
+            val formulaDisplay = "($principal2Dec × ${monthData.totalMonthsFraction.setScale(2, RoundingMode.HALF_UP)} mo × $monthlyRate%) / 100 = ₹$totalInterest"
+
+            return CalculationResult(
+                principal = principal2Dec,
+                enteredRate = rate,
+                rateType = rateType,
+                annualRate = annualRate,
+                monthlyRate = monthlyRate,
+                totalDays = paytimeDays,
+                fullMonths = monthData.fullMonths,
+                remainingDays = monthData.remainingDays,
+                totalMonthsFraction = monthData.totalMonthsFraction,
+                interestType = InterestType.SIMPLE,
+                calculationMode = CalculationMode.SPECIFIED_PERIOD,
+                startDate = borrowDate,
+                endDate = payingDate,
+                monthlyInterestAmount = monthlyInterestAmount,
+                totalInterest = totalInterest,
+                totalAmount = totalAmount,
+                yearsMonthsDaysDisplay = paytimeDurationDisplay,
+                monthsDisplay = monthData.monthsDisplay,
+                formulaDisplay = formulaDisplay,
+                borrowDate = borrowDate,
+                payingDate = payingDate,
+                agreedYears = agreedYears,
+                agreedMonths = agreedMonths,
+                agreedDays = agreedDays,
+                agreedTotalDays = agreedTotalDays,
+                agreedDueDate = agreedDueDate,
+                agreedDurationDisplay = agreedDurationDisplay,
+                paytimeDurationDisplay = paytimeDurationDisplay,
+                isOverdue = isOverdue,
+                differenceDisplay = differenceDisplay,
+                agreedInterest = agreedInterest,
+                overdueInterest = overdueInterest
+            )
+        } else {
+            val baseResult = calculateCompoundInterest(
+                principal = principal,
+                rate = rate,
+                totalDays = paytimeDays,
+                rateType = rateType,
+                mode = CalculationMode.SPECIFIED_PERIOD,
+                startDate = borrowDate,
+                endDate = payingDate
+            )
+            return baseResult.copy(
+                borrowDate = borrowDate,
+                payingDate = payingDate,
+                agreedYears = agreedYears,
+                agreedMonths = agreedMonths,
+                agreedDays = agreedDays,
+                agreedTotalDays = agreedTotalDays,
+                agreedDueDate = agreedDueDate,
+                agreedDurationDisplay = agreedDurationDisplay,
+                paytimeDurationDisplay = paytimeDurationDisplay,
+                isOverdue = isOverdue,
+                differenceDisplay = differenceDisplay,
+                agreedInterest = agreedInterest,
+                overdueInterest = overdueInterest
+            )
+        }
+    }
+
+    /**
      * Formats total days into years, months, and remaining days for readability.
      */
     fun formatDaysBreakdown(totalDays: Long): String {

@@ -95,6 +95,15 @@ fun ResultsScreen(
                 appendLine("Start Date: ${result.startDate.format(dateFormatter)}")
                 appendLine("End Date: ${result.endDate.format(dateFormatter)}")
             }
+            if (result.borrowDate != null && result.payingDate != null) {
+                appendLine("Borrow Date: ${result.borrowDate.format(dateFormatter)}")
+                appendLine("Agreed Agreement Duration: ${result.agreedDurationDisplay}")
+                if (result.agreedDueDate != null) {
+                    appendLine("Promised Due Date: ${result.agreedDueDate.format(dateFormatter)}")
+                }
+                appendLine("Paying Date: ${result.payingDate.format(dateFormatter)}")
+                appendLine("Status: ${result.differenceDisplay}")
+            }
             appendLine("Total Duration: ${result.totalDays} days (${result.yearsMonthsDaysDisplay})")
             appendLine("Total Interest: $interestFormatted")
             appendLine("Final Amount: $totalAmountFormatted")
@@ -113,6 +122,15 @@ fun ResultsScreen(
             appendLine("Annual Rate: ${result.annualRate}%")
             if (result.startDate != null && result.endDate != null) {
                 appendLine("Duration: ${result.startDate.format(dateFormatter)} to ${result.endDate.format(dateFormatter)}")
+            }
+            if (result.borrowDate != null && result.payingDate != null) {
+                appendLine("Borrow Date: ${result.borrowDate.format(dateFormatter)}")
+                appendLine("Agreed Duration: ${result.agreedDurationDisplay}")
+                if (result.agreedDueDate != null) {
+                    appendLine("Promised Due Date: ${result.agreedDueDate.format(dateFormatter)}")
+                }
+                appendLine("Paying Date: ${result.payingDate.format(dateFormatter)}")
+                appendLine("Status: ${result.differenceDisplay}")
             }
             appendLine("Total Days: ${result.totalDays} days")
             appendLine("Total Interest: $interestFormatted")
@@ -327,6 +345,32 @@ fun ResultsScreen(
                     if (result.calculationMode == CalculationMode.DATE_RANGE && result.startDate != null && result.endDate != null) {
                         DetailRow(label = "Start Date", value = result.startDate.format(dateFormatter))
                         DetailRow(label = "End Date", value = result.endDate.format(dateFormatter))
+                    }
+
+                    if (result.borrowDate != null && result.payingDate != null) {
+                        DetailRow(label = "Borrow Date (Loan Taken)", value = result.borrowDate.format(dateFormatter))
+                        DetailRow(label = "Agreed Return Duration", value = result.agreedDurationDisplay)
+                        if (result.agreedDueDate != null) {
+                            DetailRow(label = "Promised Return Date", value = result.agreedDueDate.format(dateFormatter))
+                        }
+                        DetailRow(label = "Paying Date (Repayment)", value = result.payingDate.format(dateFormatter))
+                        DetailRow(
+                            label = "Settlement Status",
+                            value = result.differenceDisplay,
+                            isBold = true,
+                            valueColor = if (result.isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        )
+                        if (result.agreedInterest != null && result.overdueInterest != null && result.isOverdue) {
+                            DetailRow(
+                                label = "Agreed Period Interest",
+                                value = InterestCalculatorEngine.formatIndianCurrency(result.agreedInterest)
+                            )
+                            DetailRow(
+                                label = "Overdue Delay Interest",
+                                value = InterestCalculatorEngine.formatIndianCurrency(result.overdueInterest),
+                                valueColor = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
 
                     DetailRow(

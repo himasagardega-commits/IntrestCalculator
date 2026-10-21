@@ -135,13 +135,13 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 3. Specified Time Period Button
+            // 3. Special Time Period Button
             ModeSelectionCard(
-                title = "Specified Time Period",
-                subtitle = "Enter fixed duration in days, months, or years without calendar dates",
+                title = "Special Time Period",
+                subtitle = "Agreed return duration (by borrower) vs. actual paytime duration (borrow date to paying date)",
                 icon = Icons.Default.DateRange,
                 accentColor = Color(0xFF6B46C1),
-                badge = "Standardized Days",
+                badge = "Loan Agreement & Paytime",
                 onClick = onSelectSpecifiedPeriod
             )
 

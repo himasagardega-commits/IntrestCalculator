@@ -4,6 +4,7 @@ import com.interestcalculator.app.data.CalculationMode
 import com.interestcalculator.app.data.InterestType
 import com.interestcalculator.app.engine.InterestCalculatorEngine
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -251,5 +252,76 @@ class InterestCalculatorEngineTest {
         assertEquals("₹1,00,000.00", InterestCalculatorEngine.formatIndianCurrency(BigDecimal("100000")))
         assertEquals("₹12,34,567.89", InterestCalculatorEngine.formatIndianCurrency(BigDecimal("1234567.89")))
         assertEquals("₹1,00,00,000.00", InterestCalculatorEngine.formatIndianCurrency(BigDecimal("10000000")))
+    }
+
+    // 18. Special Time Period: Agreed 6 months, paid late (Overdue)
+    @Test
+    fun testCase18_SpecialTimePeriod_Overdue() {
+        val borrowDate = LocalDate.of(2025, 1, 1)
+        val agreedYears = 0L
+        val agreedMonths = 6L
+        val agreedDays = 0L
+        val payingDate = LocalDate.of(2025, 9, 1)
+
+        val principal = BigDecimal("10000")
+        val rate = BigDecimal("2") // 2% per month
+
+        val res = InterestCalculatorEngine.calculateSpecialPeriodInterest(
+            principal = principal,
+            rate = rate,
+            rateType = com.interestcalculator.app.data.RateType.PER_MONTH,
+            interestType = com.interestcalculator.app.data.InterestType.SIMPLE,
+            borrowDate = borrowDate,
+            payingDate = payingDate,
+            agreedYears = agreedYears,
+            agreedMonths = agreedMonths,
+            agreedDays = agreedDays
+        )
+
+        assertTrue(res.isOverdue)
+        assertEquals(LocalDate.of(2025, 7, 1), res.agreedDueDate)
+        assertEquals(243L, res.totalDays) // Elapsed days Jan 1 to Sep 1
+        assertEquals(8L, res.fullMonths)
+        assertEquals(3L, res.remainingDays)
+        // 8 + 3/30 = 8.1 months
+        // (10000 * 8.1 * 2) / 100 = 1620.00
+        assertEquals(BigDecimal("1620.00"), res.totalInterest)
+        assertEquals(BigDecimal("11620.00"), res.totalAmount)
+        assertTrue(res.differenceDisplay.contains("Overdue"))
+    }
+
+    // 19. Special Time Period: Agreed 6 months, paid early
+    @Test
+    fun testCase19_SpecialTimePeriod_PaidEarly() {
+        val borrowDate = LocalDate.of(2025, 1, 1)
+        val agreedYears = 0L
+        val agreedMonths = 6L
+        val agreedDays = 0L
+        val payingDate = LocalDate.of(2025, 5, 1)
+
+        val principal = BigDecimal("10000")
+        val rate = BigDecimal("2")
+
+        val res = InterestCalculatorEngine.calculateSpecialPeriodInterest(
+            principal = principal,
+            rate = rate,
+            rateType = com.interestcalculator.app.data.RateType.PER_MONTH,
+            interestType = com.interestcalculator.app.data.InterestType.SIMPLE,
+            borrowDate = borrowDate,
+            payingDate = payingDate,
+            agreedYears = agreedYears,
+            agreedMonths = agreedMonths,
+            agreedDays = agreedDays
+        )
+
+        assertFalse(res.isOverdue)
+        assertEquals(LocalDate.of(2025, 7, 1), res.agreedDueDate)
+        assertEquals(120L, res.totalDays) // Elapsed days Jan 1 to May 1
+        assertEquals(4L, res.fullMonths)
+        assertEquals(0L, res.remainingDays)
+        // (10000 * 4 * 2) / 100 = 800.00
+        assertEquals(BigDecimal("800.00"), res.totalInterest)
+        assertEquals(BigDecimal("10800.00"), res.totalAmount)
+        assertTrue(res.differenceDisplay.contains("Paid early"))
     }
 }
