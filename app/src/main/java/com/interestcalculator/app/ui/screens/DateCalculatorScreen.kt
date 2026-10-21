@@ -79,7 +79,13 @@ fun DateCalculatorScreen(
         InterestCalculatorEngine.calculateElapsedDays(uiState.startDate, uiState.endDate)
     } else 0L
 
-    val daysBreakdown = InterestCalculatorEngine.formatDaysBreakdown(daysDiff)
+    val calendarBreakdown = if (!uiState.endDate.isBefore(uiState.startDate)) {
+        InterestCalculatorEngine.formatCalendarBreakdown(uiState.startDate, uiState.endDate)
+    } else "0 days"
+
+    val calendarMonthConv = if (!uiState.endDate.isBefore(uiState.startDate)) {
+        InterestCalculatorEngine.calculateCalendarMonthsAndDays(uiState.startDate, uiState.endDate)
+    } else null
 
     if (showStartDatePicker) {
         DatePickerModal(
@@ -302,10 +308,18 @@ fun DateCalculatorScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = daysBreakdown,
+                                    text = calendarBreakdown,
                                     fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f)
                                 )
+                                if (calendarMonthConv != null) {
+                                    Text(
+                                        text = "Monthly Basis: ${calendarMonthConv.monthsDisplay}",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             }
                         }
                     }

@@ -282,8 +282,8 @@ class InterestCalculatorEngineTest {
         assertTrue(res.isOverdue)
         assertEquals(LocalDate.of(2025, 7, 1), res.agreedDueDate)
         assertEquals(243L, res.totalDays) // Elapsed days Jan 1 to Sep 1
-        assertEquals(8L, res.fullMonths)
-        assertEquals(3L, res.remainingDays)
+        assertEquals(8L, res.fullMonths) // Exactly 8 calendar months
+        assertEquals(0L, res.remainingDays)
 
         // 1. Agreed period: 6 months @ 2% on 10,000 = 1200.00
         assertEquals(BigDecimal("1200.00"), res.agreedInterest)
@@ -291,13 +291,13 @@ class InterestCalculatorEngineTest {
         assertEquals(BigDecimal("11200.00"), res.actualAgreedAmount)
         // 3. Combined overdue principal = 11,200.00
         assertEquals(BigDecimal("11200.00"), res.combinedOverduePrincipal)
-        // 4. Overdue period from July 1 to Sep 1 = 62 days (2 mo, 2 days = 2.0666... mo)
-        // Compounded overdue interest: (11200 * (2 + 2/30) * 2) / 100 = 462.93
-        assertEquals(BigDecimal("462.93"), res.overdueInterest)
-        // 5. Amount After Overdue Date = 11200.00 + 462.93 = 11662.93
-        assertEquals(BigDecimal("11662.93"), res.amountAfterOverdue)
-        assertEquals(BigDecimal("1662.93"), res.totalInterest)
-        assertEquals(BigDecimal("11662.93"), res.totalAmount)
+        // 4. Overdue period from July 1 to Sep 1 = exactly 2 calendar months (0 remaining days)
+        // Compounded overdue interest: (11200 * 2.0 * 2) / 100 = 448.00
+        assertEquals(BigDecimal("448.00"), res.overdueInterest)
+        // 5. Amount After Overdue Date = 11200.00 + 448.00 = 11648.00
+        assertEquals(BigDecimal("11648.00"), res.amountAfterOverdue)
+        assertEquals(BigDecimal("1648.00"), res.totalInterest)
+        assertEquals(BigDecimal("11648.00"), res.totalAmount)
         assertTrue(res.differenceDisplay.contains("Overdue"))
     }
 
@@ -328,7 +328,7 @@ class InterestCalculatorEngineTest {
         assertFalse(res.isOverdue)
         assertEquals(LocalDate.of(2025, 7, 1), res.agreedDueDate)
         assertEquals(120L, res.totalDays) // Elapsed days Jan 1 to May 1
-        assertEquals(4L, res.fullMonths)
+        assertEquals(4L, res.fullMonths) // Exactly 4 calendar months
         assertEquals(0L, res.remainingDays)
         // Actual amount on due date was 11,200.00
         assertEquals(BigDecimal("11200.00"), res.actualAgreedAmount)
@@ -338,5 +338,98 @@ class InterestCalculatorEngineTest {
         assertEquals(BigDecimal("0.00"), res.overdueInterest)
         assertNull(res.amountAfterOverdue)
         assertTrue(res.differenceDisplay.contains("Paid early"))
+    }
+
+    // 20. Exact user scenario from screenshot: 2025-10-21 to 2026-10-21 (Principal ₹1,00,000, 1.5% / month)
+    // Must yield exactly 12 calendar months, 0 days, ₹18,000.00 interest, and ₹1,18,000.00 total.
+    @Test
+    fun testCase20_CalendarMonthsAndDays_ExactOneYear_UserScreenshot() {
+        val startDate = LocalDate.of(2025, 10, 21)
+        val endDate = LocalDate.of(2026, 10, 21)
+        val principal = BigDecimal("100000")
+        val rate = BigDecimal("1.5")
+
+        val elapsedDays = InterestCalculatorEngine.calculateElapsedDays(startDate, endDate)
+        assertEquals(365L, elapsedDays)
+
+        val monthConv = InterestCalculatorEngine.calculateCalendarMonthsAndDays(startDate, endDate)
+        assertEquals(12L, monthConv.fullMonths)
+        assertEquals(0L, monthConv.remainingDays)
+        assertEquals(1L, monthConv.years)
+        assertEquals(0L, monthConv.monthsInYear)
+        assertEquals(0, BigDecimal("12.0").compareTo(monthConv.totalMonthsFraction))
+        assertEquals("12 months (1 Year)", monthConv.monthsDisplay)
+
+        val result = InterestCalculatorEngine.calculateSimpleInterest(
+            principal = principal,
+            rate = rate,
+            totalDays = elapsedDays,
+            rateType = com.interestcalculator.app.data.RateType.PER_MONTH,
+            startDate = startDate,
+            endDate = endDate
+        )
+
+        // Formula: (P * T * R) / 100 = (100000 * 12.0 * 1.5) / 100 = 18,000.00
+        assertEquals(BigDecimal("18000.00"), result.totalInterest)
+        assertEquals(BigDecimal("118000.00"), result.totalAmount)
+        assertEquals("1 year (365 days)", result.yearsMonthsDaysDisplay)
+        assertEquals("12 months (1 Year)", result.monthsDisplay)
+    }
+
+    // 21. Calendar months with remaining days: 2025-10-21 to 2026-10-26 (12 months, 5 days)
+    @Test
+    fun testCase21_CalendarMonthsAndDays_WithRemainingDays() {
+        val startDate = LocalDate.of(2025, 10, 21)
+        val endDate = LocalDate.of(2026, 10, 26)
+        val principal = BigDecimal("100000")
+        val rate = BigDecimal("1.5")
+
+        val elapsedDays = InterestCalculatorEngine.calculateElapsedDays(startDate, endDate)
+        assertEquals(370L, elapsedDays)
+
+        val monthConv = InterestCalculatorEngine.calculateCalendarMonthsAndDays(startDate, endDate)
+        assertEquals(12L, monthConv.fullMonths)
+        assertEquals(5L, monthConv.remainingDays)
+
+        val result = InterestCalculatorEngine.calculateSimpleInterest(
+            principal = principal,
+            rate = rate,
+            totalDays = elapsedDays,
+            rateType = com.interestcalculator.app.data.RateType.PER_MONTH,
+            startDate = startDate,
+            endDate = endDate
+        )
+
+        // Formula: (100000 * (12 + 5/30) * 1.5) / 100 = 18,250.00
+        assertEquals(BigDecimal("18250.00"), result.totalInterest)
+        assertEquals(BigDecimal("118250.00"), result.totalAmount)
+    }
+
+    // 22. Compound Interest with Calendar Dates: 2024-03-15 to 2026-03-15 (Exactly 2 calendar years)
+    @Test
+    fun testCase22_CalendarMonthsAndDays_CompoundInterest() {
+        val startDate = LocalDate.of(2024, 3, 15)
+        val endDate = LocalDate.of(2026, 3, 15)
+        val principal = BigDecimal("10000")
+        val rate = BigDecimal("10") // 10% per year
+
+        val elapsedDays = InterestCalculatorEngine.calculateElapsedDays(startDate, endDate)
+        val result = InterestCalculatorEngine.calculateCompoundInterest(
+            principal = principal,
+            rate = rate,
+            totalDays = elapsedDays,
+            rateType = com.interestcalculator.app.data.RateType.PER_YEAR,
+            startDate = startDate,
+            endDate = endDate
+        )
+
+        // Year 1: 10,000 + 1,000 = 11,000
+        // Year 2: 11,000 + 1,100 = 12,100
+        // Total interest: 2,100.00, Total amount: 12,100.00
+        assertEquals(BigDecimal("2100.00"), result.totalInterest)
+        assertEquals(BigDecimal("12100.00"), result.totalAmount)
+        assertEquals(2L, result.breakdownYears.size.toLong())
+        assertEquals("Year 1 (12 calendar months)", result.breakdownYears[0].periodLabel)
+        assertEquals("Year 2 (12 calendar months)", result.breakdownYears[1].periodLabel)
     }
 }

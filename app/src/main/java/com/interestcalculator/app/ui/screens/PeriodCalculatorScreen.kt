@@ -94,8 +94,12 @@ fun PeriodCalculatorScreen(
     val paytimeDays = if (!uiState.payingDate.isBefore(uiState.borrowDate)) {
         InterestCalculatorEngine.calculateElapsedDays(uiState.borrowDate, uiState.payingDate)
     } else 0L
-    val paytimeBreakdown = InterestCalculatorEngine.formatDaysBreakdown(paytimeDays)
-    val paytimeMonthData = InterestCalculatorEngine.convertDaysToMonths(paytimeDays)
+    val paytimeBreakdown = if (!uiState.payingDate.isBefore(uiState.borrowDate)) {
+        InterestCalculatorEngine.formatCalendarBreakdown(uiState.borrowDate, uiState.payingDate)
+    } else "0 days"
+    val paytimeMonthData = if (!uiState.payingDate.isBefore(uiState.borrowDate)) {
+        InterestCalculatorEngine.calculateCalendarMonthsAndDays(uiState.borrowDate, uiState.payingDate)
+    } else InterestCalculatorEngine.convertDaysToMonths(0L)
 
     val isOverdue = uiState.payingDate.isAfter(agreedDueDate)
     val isExactDue = uiState.payingDate.isEqual(agreedDueDate)
@@ -545,7 +549,7 @@ fun PeriodCalculatorScreen(
                     // Status Badge (Overdue vs On-Time vs Early)
                     if (isOverdue) {
                         val lateDays = ChronoUnit.DAYS.between(agreedDueDate, uiState.payingDate)
-                        val lateMonthData = InterestCalculatorEngine.convertDaysToMonths(lateDays)
+                        val lateMonthData = InterestCalculatorEngine.calculateCalendarMonthsAndDays(agreedDueDate, uiState.payingDate)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -605,7 +609,7 @@ fun PeriodCalculatorScreen(
                         }
                     } else {
                         val earlyDays = ChronoUnit.DAYS.between(uiState.payingDate, agreedDueDate)
-                        val earlyMonthData = InterestCalculatorEngine.convertDaysToMonths(earlyDays)
+                        val earlyMonthData = InterestCalculatorEngine.calculateCalendarMonthsAndDays(uiState.payingDate, agreedDueDate)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()

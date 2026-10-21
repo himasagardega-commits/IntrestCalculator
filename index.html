@@ -819,6 +819,95 @@
         return Math.floor(diffTime / (1000 * 60 * 60 * 24));
     }
 
+    function addCalendarMonths(date, months) {
+        const d = new Date(date.getTime());
+        const targetMonth = d.getMonth() + months;
+        const targetYear = d.getFullYear() + Math.floor(targetMonth / 12);
+        const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+        const origDay = d.getDate();
+        d.setFullYear(targetYear);
+        d.setMonth(normalizedMonth, 1);
+        const maxDays = new Date(targetYear, normalizedMonth + 1, 0).getDate();
+        d.setDate(Math.min(origDay, maxDays));
+        return d;
+    }
+
+    function calcCalendarMonthsAndDays(d1Str, d2Str) {
+        const [y1, m1, day1] = d1Str.split('-').map(Number);
+        const [y2, m2, day2] = d2Str.split('-').map(Number);
+        const d1 = new Date(y1, m1 - 1, day1);
+        const d2 = new Date(y2, m2 - 1, day2);
+        const totalDays = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+        if (totalDays <= 0) {
+            return {
+                totalDays: 0,
+                fullMonths: 0,
+                remainingDays: 0,
+                years: 0,
+                monthsInYear: 0,
+                totalMonthsFraction: 0,
+                monthsDisplay: '0 months'
+            };
+        }
+
+        let rawMonths = (y2 - y1) * 12 + (m2 - m1);
+        if (day2 < day1) rawMonths--;
+        if (rawMonths < 0) rawMonths = 0;
+
+        let months = rawMonths;
+        let checkpoint = addCalendarMonths(d1, months);
+
+        while (true) {
+            const next = addCalendarMonths(d1, months + 1);
+            if (next <= d2) {
+                months++;
+                checkpoint = next;
+            } else {
+                break;
+            }
+        }
+        while (checkpoint > d2 && months > 0) {
+            months--;
+            checkpoint = addCalendarMonths(d1, months);
+        }
+
+        const remainingDays = Math.round((d2.getTime() - checkpoint.getTime()) / (1000 * 60 * 60 * 24));
+        const years = Math.floor(months / 12);
+        const monthsInYear = months % 12;
+        const remFraction = remainingDays > 0 ? (remainingDays / 30) : 0;
+        const totalMonthsFraction = months + remFraction;
+
+        let monthsDisplay = '';
+        if (remainingDays > 0) {
+            monthsDisplay = `${months} months, ${remainingDays} days (${totalMonthsFraction.toFixed(2)} mo)`;
+        } else {
+            if (years > 0 && monthsInYear === 0) {
+                monthsDisplay = `${months} months (${years} ${years === 1 ? 'Year' : 'Years'})`;
+            } else {
+                monthsDisplay = `${months} months`;
+            }
+        }
+
+        return {
+            totalDays,
+            fullMonths: months,
+            remainingDays,
+            years,
+            monthsInYear,
+            totalMonthsFraction,
+            monthsDisplay
+        };
+    }
+
+    function formatCalendarBreakdown(d1Str, d2Str) {
+        const conv = calcCalendarMonthsAndDays(d1Str, d2Str);
+        let parts = [];
+        if (conv.years > 0) parts.push(conv.years + (conv.years === 1 ? ' year' : ' years'));
+        if (conv.monthsInYear > 0) parts.push(conv.monthsInYear + (conv.monthsInYear === 1 ? ' month' : ' months'));
+        if (conv.remainingDays > 0 || parts.length === 0) parts.push(conv.remainingDays + (conv.remainingDays === 1 ? ' day' : ' days'));
+        return parts.join(', ') + ` (${conv.totalDays} days)`;
+    }
+
     function convertDaysToMonths(totalDays) {
         const fullMonths = Math.floor(totalDays / 30);
         const remainingDays = totalDays % 30;
@@ -859,9 +948,14 @@
         return (p * t * r) / 100;
     }
 
-    function calculateCore(principal, rate, totalDays, type, rateType) {
+    function calculateCore(principal, rate, totalDays, type, rateType, startDateStr, endDateStr) {
         rateType = rateType || 'MONTH';
-        const monthData = convertDaysToMonths(totalDays);
+        const monthData = (startDateStr && endDateStr) 
+            ? calcCalendarMonthsAndDays(startDateStr, endDateStr)
+            : convertDaysToMonths(totalDays);
+        const durationDisplay = (startDateStr && endDateStr)
+            ? formatCalendarBreakdown(startDateStr, endDateStr)
+            : formatDaysBreakdown(totalDays);
 
         let monthlyRate = 0;
         let annualRate = 0;
@@ -883,6 +977,7 @@
                 annualRate: annualRate,
                 monthlyInterestAmount: 0,
                 monthData: monthData,
+                durationDisplay: durationDisplay,
                 breakdown: []
             };
         }
@@ -898,6 +993,7 @@
                 annualRate: annualRate,
                 monthlyInterestAmount: monthlyInterestAmount,
                 monthData: monthData,
+                durationDisplay: durationDisplay,
                 breakdown: []
             };
         } else {
@@ -912,8 +1008,11 @@
                 const opening = balance;
                 const yearInt = opening * (annualRate / 100);
                 balance += yearInt;
+                const yearLabel = (startDateStr && endDateStr)
+                    ? `Year ${i} (12 calendar months)`
+                    : `Year ${i} (12 months / 360 days)`;
                 schedule.push({
-                    label: `Year ${i} (12 months / 360 days)`,
+                    label: yearLabel,
                     opening: opening,
                     interest: yearInt,
                     closing: balance
@@ -944,6 +1043,7 @@
                 annualRate: annualRate,
                 monthlyInterestAmount: monthlyInterestAmount,
                 monthData: monthData,
+                durationDisplay: durationDisplay,
                 breakdown: schedule
             };
         }
@@ -969,11 +1069,12 @@
             errorElem.style.display = 'none';
         }
 
-        const monthData = convertDaysToMonths(days);
-        document.getElementById('dateDurationBanner').innerHTML = `<strong>Total:</strong> ${days} days • <strong>Monthly Basis:</strong> ${monthData.monthsDisplay}`;
+        const monthData = calcCalendarMonthsAndDays(s, e);
+        const durationDisplay = formatCalendarBreakdown(s, e);
+        document.getElementById('dateDurationBanner').innerHTML = `<strong>Duration:</strong> ${durationDisplay} • <strong>Monthly Basis:</strong> ${monthData.monthsDisplay}`;
 
         if (p > 0 && r >= 0 && days >= 0) {
-            const res = calculateCore(p, r, days, selectedInterestType, currentDateRateType);
+            const res = calculateCore(p, r, days, selectedInterestType, currentDateRateType, s, e);
             document.getElementById('dateLiveText').innerText = `Interest: ${formatIndian(res.interest)} • Total: ${formatIndian(res.total)}`;
             document.getElementById('dateLiveBox').style.display = 'flex';
         } else {
@@ -992,13 +1093,14 @@
         if (calcDaysDifference(s, e) < 0) { alert('End date cannot be earlier than start date'); return; }
 
         const days = calcDaysDifference(s, e);
-        const res = calculateCore(p, r, days, selectedInterestType, currentDateRateType);
+        const res = calculateCore(p, r, days, selectedInterestType, currentDateRateType, s, e);
         displayResults({
             principal: p,
             rate: r,
             rateType: currentDateRateType,
             days: days,
             dates: `${s} to ${e}`,
+            durationDisplay: res.durationDisplay,
             type: selectedInterestType,
             interest: res.interest,
             total: res.total,
@@ -1093,8 +1195,9 @@
 
         // Calculate Paytime Duration = Elapsed between bStr and payStr
         const paytimeDays = calcDaysDifference(bStr, payStr);
-        const paytimeMonthData = convertDaysToMonths(paytimeDays);
-        document.getElementById('periodPaytimeText').innerText = `${paytimeDays} days • ${paytimeMonthData.monthsDisplay}`;
+        const paytimeMonthData = calcCalendarMonthsAndDays(bStr, payStr);
+        const paytimeDurationDisplay = formatCalendarBreakdown(bStr, payStr);
+        document.getElementById('periodPaytimeText').innerText = `${paytimeDurationDisplay} • ${paytimeMonthData.monthsDisplay}`;
 
         // Status Badge (Overdue vs On-time vs Early)
         const payDate = new Date(payStr);
@@ -1103,7 +1206,7 @@
 
         if (payDate > agreedDueDate) {
             const lateDays = calcDaysDifference(agreedDueDateStr, payStr);
-            const lateMonthData = convertDaysToMonths(lateDays);
+            const lateMonthData = calcCalendarMonthsAndDays(agreedDueDateStr, payStr);
             statusBadge.style.background = '#FFF3CD';
             statusBadge.style.color = '#856404';
             statusBadge.style.border = '1px solid #FFEBAA';
@@ -1115,7 +1218,7 @@
             statusBadge.innerHTML = ` <strong>PAID ON TIME:</strong> Paid exactly on promised due date!`;
         } else {
             const earlyDays = calcDaysDifference(payStr, agreedDueDateStr);
-            const earlyMonthData = convertDaysToMonths(earlyDays);
+            const earlyMonthData = calcCalendarMonthsAndDays(payStr, agreedDueDateStr);
             statusBadge.style.background = '#D4EDDA';
             statusBadge.style.color = '#155724';
             statusBadge.style.border = '1px solid #C3E6CB';
@@ -1123,7 +1226,7 @@
         }
 
         if (p > 0 && r >= 0 && paytimeDays >= 0) {
-            const res = calculateCore(p, r, paytimeDays, selectedInterestType, currentPeriodRateType);
+            const res = calculateCore(p, r, paytimeDays, selectedInterestType, currentPeriodRateType, bStr, payStr);
             document.getElementById('periodLiveText').innerText = `Interest: ${formatIndian(res.interest)} • Total: ${formatIndian(res.total)}`;
             document.getElementById('periodLiveBox').style.display = 'flex';
         } else {
@@ -1146,7 +1249,9 @@
         if (calcDaysDifference(bStr, payStr) < 0) { alert('Paying date cannot be earlier than borrow date'); return; }
 
         const paytimeDays = calcDaysDifference(bStr, payStr);
-        const res = calculateCore(p, r, paytimeDays, selectedInterestType, currentPeriodRateType);
+        const paytimeMonthData = calcCalendarMonthsAndDays(bStr, payStr);
+        const paytimeDurationDisplay = formatCalendarBreakdown(bStr, payStr);
+        const res = calculateCore(p, r, paytimeDays, selectedInterestType, currentPeriodRateType, bStr, payStr);
 
         const bDate = new Date(bStr);
         const agreedDueDate = new Date(bDate);
@@ -1155,16 +1260,12 @@
         agreedDueDate.setDate(agreedDueDate.getDate() + ad);
         const agreedDueDateStr = agreedDueDate.toISOString().split('T')[0];
 
-        const agreedTotalDays = (ay * 365) + (am * 30) + ad;
-        let agreedParts = [];
-        if (ay > 0) agreedParts.push(ay + ' yr');
-        if (am > 0) agreedParts.push(am + ' mo');
-        if (ad > 0 || agreedParts.length === 0) agreedParts.push(ad + ' d');
-        const agreedDurationDisplay = agreedParts.join(', ') + ` (${agreedTotalDays} days)`;
+        const agreedTotalDays = calcDaysDifference(bStr, agreedDueDateStr);
+        const agreedDurationDisplay = formatCalendarBreakdown(bStr, agreedDueDateStr);
 
         const monthlyRate = currentPeriodRateType === 'MONTH' ? r : (r / 12);
         const annualRate = currentPeriodRateType === 'MONTH' ? (r * 12) : r;
-        const agreedMonthData = convertDaysToMonths(agreedTotalDays);
+        const agreedMonthData = calcCalendarMonthsAndDays(bStr, agreedDueDateStr);
         const agreedInterest = Math.round(simpleInterest(p, agreedMonthData.totalMonthsFraction, monthlyRate) * 100) / 100;
         const actualAgreedAmount = Math.round((p + agreedInterest) * 100) / 100;
 
@@ -1179,21 +1280,19 @@
 
         if (isOverdue) {
             const lateDays = calcDaysDifference(agreedDueDateStr, payStr);
-            const lateMonthData = convertDaysToMonths(lateDays);
+            const lateMonthData = calcCalendarMonthsAndDays(agreedDueDateStr, payStr);
             differenceDisplay = `Overdue by ${lateMonthData.fullMonths} mo, ${lateMonthData.remainingDays} d (${lateDays} days late)`;
 
             // When overdue: Principal & Agreed Interest combine at the promised due date (like compound interest)
             combinedOverduePrincipal = actualAgreedAmount;
             let balance = combinedOverduePrincipal;
-            const fullYears = Math.floor(lateDays / 365);
-            const remDays = lateDays % 365;
 
-            for (let y = 1; y <= fullYears; y++) {
+            for (let y = 1; y <= lateMonthData.years; y++) {
                 balance += balance * (annualRate / 100);
             }
-            if (remDays > 0) {
-                const remMonthData = convertDaysToMonths(remDays);
-                balance += balance * (monthlyRate / 100) * remMonthData.totalMonthsFraction;
+            if (lateMonthData.monthsInYear > 0 || lateMonthData.remainingDays > 0) {
+                const remFraction = lateMonthData.monthsInYear + (lateMonthData.remainingDays / 30);
+                balance += balance * (monthlyRate / 100) * remFraction;
             }
 
             amountAfterOverdue = Math.round(balance * 100) / 100;
@@ -1207,7 +1306,7 @@
             amountAfterOverdue = actualAgreedAmount;
         } else {
             const earlyDays = calcDaysDifference(payStr, agreedDueDateStr);
-            const earlyMonthData = convertDaysToMonths(earlyDays);
+            const earlyMonthData = calcCalendarMonthsAndDays(payStr, agreedDueDateStr);
             differenceDisplay = `Paid early by ${earlyMonthData.fullMonths} mo, ${earlyMonthData.remainingDays} d (${earlyDays} days ahead)`;
             const settledInterest = Math.round(simpleInterest(p, paytimeMonthData.totalMonthsFraction, monthlyRate) * 100) / 100;
             totalInterest = settledInterest;
@@ -1224,6 +1323,7 @@
             payingDate: payStr,
             agreedDurationDisplay: agreedDurationDisplay,
             agreedDueDate: agreedDueDateStr,
+            durationDisplay: paytimeDurationDisplay,
             isOverdue: isOverdue,
             differenceDisplay: differenceDisplay,
             agreedInterest: agreedInterest,
@@ -1298,8 +1398,8 @@
         document.getElementById('resMonthlyRate').innerText = (data.monthlyRate).toFixed(4).replace(/\.?0+$/, '') + '% / mo';
         document.getElementById('resInterestPerMonth').innerText = formatIndian(data.monthlyInterestAmount) + ' / mo';
         document.getElementById('resType').innerText = data.type === 'SIMPLE' ? 'Simple Interest' : 'Compound Interest';
-        document.getElementById('resDays').innerText = `${data.days} Days`;
-        document.getElementById('resMonths').innerText = `${mData.fullMonths} Months, ${mData.remainingDays} Days (${mData.totalMonthsFraction.toFixed(2)} mo)`;
+        document.getElementById('resDays').innerText = data.durationDisplay ? `${data.durationDisplay}` : `${data.days} Days`;
+        document.getElementById('resMonths').innerText = mData.monthsDisplay || `${mData.fullMonths} Months, ${mData.remainingDays} Days (${mData.totalMonthsFraction.toFixed(2)} mo)`;
         document.getElementById('resBottomTotal').innerText = formatIndian(data.total);
 
         // Agreement vs Paytime Row

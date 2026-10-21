@@ -42,8 +42,8 @@ object InterestCalculatorEngine {
     }
 
     /**
-     * Converts total days into full months, remaining days, and fractional months.
-     * 30 days = 1 month, 12 months = 1 year.
+     * Converts total days into full months, remaining days, and fractional months (standard 30 days = 1 month fallback).
+     * Used when start/end dates are not available (e.g. fixed duration in days).
      */
     fun convertDaysToMonths(totalDays: Long): MonthConversion {
         val fullMonths = totalDays / 30L
@@ -73,6 +73,91 @@ object InterestCalculatorEngine {
             totalMonthsFraction = totalMonthsFraction,
             monthsDisplay = monthsDisplay
         )
+    }
+
+    /**
+     * Calculates exact calendar months and remaining days between two dates according to standard calendar rules.
+     * For example, 21-10-2025 to 21-10-2026 is exactly 12 calendar months, 0 days.
+     */
+    fun calculateCalendarMonthsAndDays(startDate: LocalDate, endDate: LocalDate): MonthConversion {
+        require(!endDate.isBefore(startDate)) {
+            "End date cannot be earlier than start date"
+        }
+        val totalDays = ChronoUnit.DAYS.between(startDate, endDate)
+        if (totalDays == 0L) {
+            return MonthConversion(
+                totalDays = 0L,
+                fullMonths = 0L,
+                remainingDays = 0L,
+                years = 0L,
+                monthsInYear = 0L,
+                totalMonthsFraction = BigDecimal.ZERO,
+                monthsDisplay = "0 months"
+            )
+        }
+
+        // Count whole calendar months
+        val rawMonths = ChronoUnit.MONTHS.between(startDate, endDate)
+        var months = rawMonths
+        var checkpoint = startDate.plusMonths(months)
+
+        while (!checkpoint.plusMonths(1).isAfter(endDate)) {
+            months++
+            checkpoint = startDate.plusMonths(months)
+        }
+        while (checkpoint.isAfter(endDate) && months > 0L) {
+            months--
+            checkpoint = startDate.plusMonths(months)
+        }
+
+        val remainingDays = ChronoUnit.DAYS.between(checkpoint, endDate)
+        val years = months / 12L
+        val monthsInYear = months % 12L
+
+        val remFraction = if (remainingDays > 0L) {
+            BigDecimal(remainingDays).divide(THIRTY, MATH_CONTEXT)
+        } else {
+            BigDecimal.ZERO
+        }
+        val totalMonthsFraction = BigDecimal(months).add(remFraction, MATH_CONTEXT)
+
+        val monthsDisplay = if (remainingDays > 0L) {
+            "$months months, $remainingDays days (${totalMonthsFraction.setScale(2, RoundingMode.HALF_UP)} mo)"
+        } else {
+            if (years > 0L && monthsInYear == 0L) {
+                "$months months ($years ${if (years == 1L) "Year" else "Years"})"
+            } else {
+                "$months months"
+            }
+        }
+
+        return MonthConversion(
+            totalDays = totalDays,
+            fullMonths = months,
+            remainingDays = remainingDays,
+            years = years,
+            monthsInYear = monthsInYear,
+            totalMonthsFraction = totalMonthsFraction,
+            monthsDisplay = monthsDisplay
+        )
+    }
+
+    /**
+     * Formats duration into calendar breakdown (years, months, days) when dates are available.
+     */
+    fun formatCalendarBreakdown(startDate: LocalDate, endDate: LocalDate): String {
+        val conv = calculateCalendarMonthsAndDays(startDate, endDate)
+        val parts = mutableListOf<String>()
+        if (conv.years > 0L) {
+            parts.add("${conv.years} ${if (conv.years == 1L) "year" else "years"}")
+        }
+        if (conv.monthsInYear > 0L) {
+            parts.add("${conv.monthsInYear} ${if (conv.monthsInYear == 1L) "month" else "months"}")
+        }
+        if (conv.remainingDays > 0L || parts.isEmpty()) {
+            parts.add("${conv.remainingDays} ${if (conv.remainingDays == 1L) "day" else "days"}")
+        }
+        return "${parts.joinToString(", ")} (${conv.totalDays} days)"
     }
 
     /**
@@ -106,7 +191,16 @@ object InterestCalculatorEngine {
         validateInputs(principal, rate, totalDays)
 
         val principal2Dec = principal.setScale(2, RoundingMode.HALF_UP)
-        val monthData = convertDaysToMonths(totalDays)
+        val monthData = if (startDate != null && endDate != null) {
+            calculateCalendarMonthsAndDays(startDate, endDate)
+        } else {
+            convertDaysToMonths(totalDays)
+        }
+        val durationDisplay = if (startDate != null && endDate != null) {
+            formatCalendarBreakdown(startDate, endDate)
+        } else {
+            formatDaysBreakdown(totalDays)
+        }
 
         val monthlyRate: BigDecimal
         val annualRate: BigDecimal
@@ -140,7 +234,7 @@ object InterestCalculatorEngine {
                 monthlyInterestAmount = zeroInterest,
                 totalInterest = zeroInterest,
                 totalAmount = principal2Dec,
-                yearsMonthsDaysDisplay = formatDaysBreakdown(totalDays),
+                yearsMonthsDaysDisplay = durationDisplay,
                 monthsDisplay = monthData.monthsDisplay,
                 formulaDisplay = "(P × T × R) / 100 = 0.00"
             )
@@ -169,7 +263,7 @@ object InterestCalculatorEngine {
             monthlyInterestAmount = monthlyInterestAmount,
             totalInterest = totalInterest,
             totalAmount = totalAmount,
-            yearsMonthsDaysDisplay = formatDaysBreakdown(totalDays),
+            yearsMonthsDaysDisplay = durationDisplay,
             monthsDisplay = monthData.monthsDisplay,
             formulaDisplay = formulaDisplay
         )
@@ -192,7 +286,16 @@ object InterestCalculatorEngine {
         validateInputs(principal, rate, totalDays)
 
         val principal2Dec = principal.setScale(2, RoundingMode.HALF_UP)
-        val monthData = convertDaysToMonths(totalDays)
+        val monthData = if (startDate != null && endDate != null) {
+            calculateCalendarMonthsAndDays(startDate, endDate)
+        } else {
+            convertDaysToMonths(totalDays)
+        }
+        val durationDisplay = if (startDate != null && endDate != null) {
+            formatCalendarBreakdown(startDate, endDate)
+        } else {
+            formatDaysBreakdown(totalDays)
+        }
 
         val monthlyRate: BigDecimal
         val annualRate: BigDecimal
@@ -226,7 +329,7 @@ object InterestCalculatorEngine {
                 monthlyInterestAmount = zeroInterest,
                 totalInterest = zeroInterest,
                 totalAmount = principal2Dec,
-                yearsMonthsDaysDisplay = formatDaysBreakdown(totalDays),
+                yearsMonthsDaysDisplay = durationDisplay,
                 monthsDisplay = monthData.monthsDisplay
             )
         }
@@ -245,10 +348,15 @@ object InterestCalculatorEngine {
             val opening = balance
             val yearInterest = balance.multiply(annualRateFraction, MATH_CONTEXT)
             balance = balance.add(yearInterest, MATH_CONTEXT)
+            val yearLabel = if (startDate != null && endDate != null) {
+                "Year $i (12 calendar months)"
+            } else {
+                "Year $i (12 months / 360 days)"
+            }
             breakdowns.add(
                 CompoundingYearBreakdown(
                     yearNumber = i.toInt(),
-                    periodLabel = "Year $i (12 months / 360 days)",
+                    periodLabel = yearLabel,
                     openingBalance = opening.setScale(2, RoundingMode.HALF_UP),
                     interestEarned = yearInterest.setScale(2, RoundingMode.HALF_UP),
                     closingBalance = balance.setScale(2, RoundingMode.HALF_UP)
@@ -306,7 +414,7 @@ object InterestCalculatorEngine {
             totalInterest = totalInterest,
             totalAmount = totalAmount,
             breakdownYears = breakdowns,
-            yearsMonthsDaysDisplay = formatDaysBreakdown(totalDays),
+            yearsMonthsDaysDisplay = durationDisplay,
             monthsDisplay = monthData.monthsDisplay
         )
     }
@@ -339,8 +447,8 @@ object InterestCalculatorEngine {
         val agreedTotalDays = convertPeriodToDays(agreedYears, agreedMonths, agreedDays)
         val agreedDueDate = borrowDate.plusYears(agreedYears).plusMonths(agreedMonths).plusDays(agreedDays)
 
-        val monthData = convertDaysToMonths(paytimeDays)
-        val agreedMonthData = convertDaysToMonths(agreedTotalDays)
+        val monthData = calculateCalendarMonthsAndDays(borrowDate, payingDate)
+        val agreedMonthData = calculateCalendarMonthsAndDays(borrowDate, agreedDueDate)
 
         val monthlyRate: BigDecimal
         val annualRate: BigDecimal
@@ -363,7 +471,7 @@ object InterestCalculatorEngine {
             append(" ($agreedTotalDays days)")
         }
 
-        val paytimeDurationDisplay = formatDaysBreakdown(paytimeDays)
+        val paytimeDurationDisplay = formatCalendarBreakdown(borrowDate, payingDate)
 
         val isOverdue = payingDate.isAfter(agreedDueDate)
         val differenceDisplay: String
@@ -378,7 +486,7 @@ object InterestCalculatorEngine {
 
         if (isOverdue) {
             val overdueDays = ChronoUnit.DAYS.between(agreedDueDate, payingDate)
-            val overdueMonthData = convertDaysToMonths(overdueDays)
+            val overdueMonthData = calculateCalendarMonthsAndDays(agreedDueDate, payingDate)
             differenceDisplay = "Overdue by ${overdueMonthData.fullMonths} mo, ${overdueMonthData.remainingDays} d ($overdueDays days late)"
 
             // When overdue: Principal & Agreed Interest combine at the promised due date (like compound interest)
@@ -387,16 +495,17 @@ object InterestCalculatorEngine {
 
             // Calculate overdue interest compounded on the combined balance
             var currentBalance = combinedBase
-            val fullYears = overdueDays / 365L
-            val remDays = overdueDays % 365L
 
-            for (y in 1..fullYears) {
+            for (y in 1..overdueMonthData.years) {
                 val yearInterest = currentBalance.multiply(annualRate, MATH_CONTEXT).divide(HUNDRED, MATH_CONTEXT)
                 currentBalance = currentBalance.add(yearInterest)
             }
-            if (remDays > 0L) {
-                val remMonthData = convertDaysToMonths(remDays)
-                val remInterest = simpleInterest(currentBalance, remMonthData.totalMonthsFraction, monthlyRate)
+            if (overdueMonthData.monthsInYear > 0L || overdueMonthData.remainingDays > 0L) {
+                val remFraction = BigDecimal(overdueMonthData.monthsInYear).add(
+                    BigDecimal(overdueMonthData.remainingDays).divide(THIRTY, MATH_CONTEXT),
+                    MATH_CONTEXT
+                )
+                val remInterest = simpleInterest(currentBalance, remFraction, monthlyRate)
                 currentBalance = currentBalance.add(remInterest)
             }
 
@@ -423,7 +532,7 @@ object InterestCalculatorEngine {
             formulaDisplay = "Agreed Period: ($principal2Dec × ${agreedMonthData.totalMonthsFraction.setScale(2, RoundingMode.HALF_UP)} mo × $monthlyRate%) / 100 = ₹$agreedInterest"
         } else {
             val earlyDays = ChronoUnit.DAYS.between(payingDate, agreedDueDate)
-            val earlyMonthData = convertDaysToMonths(earlyDays)
+            val earlyMonthData = calculateCalendarMonthsAndDays(payingDate, agreedDueDate)
             differenceDisplay = "Paid early by ${earlyMonthData.fullMonths} mo, ${earlyMonthData.remainingDays} d ($earlyDays days ahead)"
             overdueInterest = BigDecimal("0.00")
             combinedOverduePrincipal = null
