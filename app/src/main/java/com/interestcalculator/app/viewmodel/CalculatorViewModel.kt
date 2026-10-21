@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.interestcalculator.app.data.CalculationMode
 import com.interestcalculator.app.data.CalculationResult
 import com.interestcalculator.app.data.InterestType
+import com.interestcalculator.app.data.RateType
 import com.interestcalculator.app.engine.InterestCalculatorEngine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +24,7 @@ data class CalculatorUiState(
     val currentScreen: AppScreen = AppScreen.HOME,
     val selectedInterestType: InterestType = InterestType.SIMPLE,
     val calculationMode: CalculationMode = CalculationMode.DATE_RANGE,
+    val rateType: RateType = RateType.PER_MONTH,
 
     // Date Mode Inputs
     val datePrincipal: String = "",
@@ -88,6 +90,15 @@ class CalculatorViewModel : ViewModel() {
 
     fun setInterestType(type: InterestType) {
         _uiState.update { it.copy(selectedInterestType = type) }
+        if (_uiState.value.calculationMode == CalculationMode.DATE_RANGE) {
+            recalculateLiveDate()
+        } else {
+            recalculateLivePeriod()
+        }
+    }
+
+    fun onRateTypeChanged(type: RateType) {
+        _uiState.update { it.copy(rateType = type) }
         if (_uiState.value.calculationMode == CalculationMode.DATE_RANGE) {
             recalculateLiveDate()
         } else {
@@ -346,16 +357,18 @@ class CalculatorViewModel : ViewModel() {
         return when (state.selectedInterestType) {
             InterestType.SIMPLE -> InterestCalculatorEngine.calculateSimpleInterest(
                 principal = principal,
-                annualRate = rate,
+                rate = rate,
                 totalDays = days,
+                rateType = state.rateType,
                 mode = CalculationMode.DATE_RANGE,
                 startDate = state.startDate,
                 endDate = state.endDate
             )
             InterestType.COMPOUND -> InterestCalculatorEngine.calculateCompoundInterest(
                 principal = principal,
-                annualRate = rate,
+                rate = rate,
                 totalDays = days,
+                rateType = state.rateType,
                 mode = CalculationMode.DATE_RANGE,
                 startDate = state.startDate,
                 endDate = state.endDate
@@ -376,14 +389,16 @@ class CalculatorViewModel : ViewModel() {
         return when (state.selectedInterestType) {
             InterestType.SIMPLE -> InterestCalculatorEngine.calculateSimpleInterest(
                 principal = principal,
-                annualRate = rate,
+                rate = rate,
                 totalDays = totalDays,
+                rateType = state.rateType,
                 mode = CalculationMode.SPECIFIED_PERIOD
             )
             InterestType.COMPOUND -> InterestCalculatorEngine.calculateCompoundInterest(
                 principal = principal,
-                annualRate = rate,
+                rate = rate,
                 totalDays = totalDays,
+                rateType = state.rateType,
                 mode = CalculationMode.SPECIFIED_PERIOD
             )
         }

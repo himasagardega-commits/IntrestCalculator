@@ -211,6 +211,36 @@ class InterestCalculatorEngineTest {
         }
     }
 
+    // 16. User's exact Python formula: (p * t * r) / 100
+    @Test
+    fun testCase16_UserFormula_P_T_R_Over_100() {
+        val p = BigDecimal("10000")
+        val t = BigDecimal("12") // 12 months
+        val r = BigDecimal("2")  // 2% per month
+        val result = InterestCalculatorEngine.simpleInterest(p, t, r)
+        // (10000 * 12 * 2) / 100 = 2400.00
+        assertEquals(BigDecimal("2400.00"), result.setScale(2, java.math.RoundingMode.HALF_UP))
+    }
+
+    // 17. Monthly Rate calculation via RateType.PER_MONTH
+    @Test
+    fun testCase17_SimpleInterest_MonthlyRateMode() {
+        val principal = BigDecimal("10000")
+        val monthlyRate = BigDecimal("2") // 2% per month
+        val days = 360L // 12 months
+        val result = InterestCalculatorEngine.calculateSimpleInterest(
+            principal = principal,
+            rate = monthlyRate,
+            totalDays = days,
+            rateType = com.interestcalculator.app.data.RateType.PER_MONTH
+        )
+        // (10000 * 12 * 2) / 100 = 2400.00
+        assertEquals(BigDecimal("2400.00"), result.totalInterest)
+        assertEquals(BigDecimal("12400.00"), result.totalAmount)
+        assertEquals(BigDecimal("2.0000"), result.monthlyRate)
+        assertEquals(BigDecimal("24.00"), result.annualRate)
+    }
+
     // Test Indian currency formatting
     @Test
     fun testIndianCurrencyFormatting() {

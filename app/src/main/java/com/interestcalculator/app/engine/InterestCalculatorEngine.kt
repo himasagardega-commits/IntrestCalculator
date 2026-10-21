@@ -4,6 +4,7 @@ import com.interestcalculator.app.data.CalculationMode
 import com.interestcalculator.app.data.CalculationResult
 import com.interestcalculator.app.data.CompoundingYearBreakdown
 import com.interestcalculator.app.data.InterestType
+import com.interestcalculator.app.data.RateType
 import java.math.BigDecimal
 import java.math.MathContext
 import java.math.RoundingMode
@@ -75,30 +76,57 @@ object InterestCalculatorEngine {
     }
 
     /**
-     * Calculates Simple Interest using MONTHS:
+     * Exact Simple Interest formula requested by user:
+     * def simple_interest(p, t, r): return (p * t * r) / 100
+     *
+     * @param p Principal amount
+     * @param t Time in months (or fractional months converted from days)
+     * @param r Rate of interest per month
+     */
+    fun simpleInterest(p: BigDecimal, t: BigDecimal, r: BigDecimal): BigDecimal {
+        return p.multiply(t, MATH_CONTEXT).multiply(r, MATH_CONTEXT).divide(HUNDRED, MATH_CONTEXT)
+    }
+
+    /**
+     * Calculates Simple Interest using (P * T * R) / 100:
      * - Days are converted to months (30 days = 1 month).
-     * - Monthly Rate = Annual Rate / 12.
-     * - Interest = Principal * Monthly Rate * Total Months / 100.
+     * - T = Time in months (Full months + remainingDays / 30).
+     * - R = Rate per month (If entered as annual rate, R = annualRate / 12).
+     * - Formula: Simple Interest = (P * T * R) / 100
      */
     fun calculateSimpleInterest(
         principal: BigDecimal,
-        annualRate: BigDecimal,
+        rate: BigDecimal,
         totalDays: Long,
+        rateType: RateType = RateType.PER_YEAR,
         mode: CalculationMode = CalculationMode.DATE_RANGE,
         startDate: LocalDate? = null,
         endDate: LocalDate? = null
     ): CalculationResult {
-        validateInputs(principal, annualRate, totalDays)
+        validateInputs(principal, rate, totalDays)
 
         val principal2Dec = principal.setScale(2, RoundingMode.HALF_UP)
         val monthData = convertDaysToMonths(totalDays)
-        val monthlyRate = annualRate.divide(TWELVE, MATH_CONTEXT).setScale(4, RoundingMode.HALF_UP)
+
+        val monthlyRate: BigDecimal
+        val annualRate: BigDecimal
+
+        if (rateType == RateType.PER_MONTH) {
+            monthlyRate = rate.setScale(4, RoundingMode.HALF_UP)
+            annualRate = rate.multiply(TWELVE, MATH_CONTEXT).setScale(2, RoundingMode.HALF_UP)
+        } else {
+            annualRate = rate.setScale(2, RoundingMode.HALF_UP)
+            monthlyRate = rate.divide(TWELVE, MATH_CONTEXT).setScale(4, RoundingMode.HALF_UP)
+        }
+
         val monthlyInterestAmount = principal2Dec.multiply(monthlyRate).divide(HUNDRED, MATH_CONTEXT).setScale(2, RoundingMode.HALF_UP)
 
-        if (totalDays == 0L || annualRate.compareTo(BigDecimal.ZERO) == 0) {
+        if (totalDays == 0L || rate.compareTo(BigDecimal.ZERO) == 0) {
             val zeroInterest = BigDecimal("0.00")
             return CalculationResult(
                 principal = principal2Dec,
+                enteredRate = rate,
+                rateType = rateType,
                 annualRate = annualRate,
                 monthlyRate = monthlyRate,
                 totalDays = totalDays,
@@ -113,18 +141,21 @@ object InterestCalculatorEngine {
                 totalInterest = zeroInterest,
                 totalAmount = principal2Dec,
                 yearsMonthsDaysDisplay = formatDaysBreakdown(totalDays),
-                monthsDisplay = monthData.monthsDisplay
+                monthsDisplay = monthData.monthsDisplay,
+                formulaDisplay = "(P × T × R) / 100 = 0.00"
             )
         }
 
-        val monthlyRateFraction = annualRate.divide(TWELVE, MATH_CONTEXT).divide(HUNDRED, MATH_CONTEXT)
-        val rawInterest = principal.multiply(monthlyRateFraction, MATH_CONTEXT).multiply(monthData.totalMonthsFraction, MATH_CONTEXT)
-
+        // Exact formula: (p * t * r) / 100
+        val rawInterest = simpleInterest(principal, monthData.totalMonthsFraction, monthlyRate)
         val totalInterest = rawInterest.setScale(2, RoundingMode.HALF_UP)
         val totalAmount = principal2Dec.add(totalInterest)
+        val formulaDisplay = "($principal2Dec × ${monthData.totalMonthsFraction.setScale(2, RoundingMode.HALF_UP)} mo × $monthlyRate%) / 100 = ₹$totalInterest"
 
         return CalculationResult(
             principal = principal2Dec,
+            enteredRate = rate,
+            rateType = rateType,
             annualRate = annualRate,
             monthlyRate = monthlyRate,
             totalDays = totalDays,
@@ -139,7 +170,8 @@ object InterestCalculatorEngine {
             totalInterest = totalInterest,
             totalAmount = totalAmount,
             yearsMonthsDaysDisplay = formatDaysBreakdown(totalDays),
-            monthsDisplay = monthData.monthsDisplay
+            monthsDisplay = monthData.monthsDisplay,
+            formulaDisplay = formulaDisplay
         )
     }
 
@@ -150,23 +182,37 @@ object InterestCalculatorEngine {
      */
     fun calculateCompoundInterest(
         principal: BigDecimal,
-        annualRate: BigDecimal,
+        rate: BigDecimal,
         totalDays: Long,
+        rateType: RateType = RateType.PER_YEAR,
         mode: CalculationMode = CalculationMode.DATE_RANGE,
         startDate: LocalDate? = null,
         endDate: LocalDate? = null
     ): CalculationResult {
-        validateInputs(principal, annualRate, totalDays)
+        validateInputs(principal, rate, totalDays)
 
         val principal2Dec = principal.setScale(2, RoundingMode.HALF_UP)
         val monthData = convertDaysToMonths(totalDays)
-        val monthlyRate = annualRate.divide(TWELVE, MATH_CONTEXT).setScale(4, RoundingMode.HALF_UP)
+
+        val monthlyRate: BigDecimal
+        val annualRate: BigDecimal
+
+        if (rateType == RateType.PER_MONTH) {
+            monthlyRate = rate.setScale(4, RoundingMode.HALF_UP)
+            annualRate = rate.multiply(TWELVE, MATH_CONTEXT).setScale(2, RoundingMode.HALF_UP)
+        } else {
+            annualRate = rate.setScale(2, RoundingMode.HALF_UP)
+            monthlyRate = rate.divide(TWELVE, MATH_CONTEXT).setScale(4, RoundingMode.HALF_UP)
+        }
+
         val monthlyInterestAmount = principal2Dec.multiply(monthlyRate).divide(HUNDRED, MATH_CONTEXT).setScale(2, RoundingMode.HALF_UP)
 
-        if (totalDays == 0L || annualRate.compareTo(BigDecimal.ZERO) == 0) {
+        if (totalDays == 0L || rate.compareTo(BigDecimal.ZERO) == 0) {
             val zeroInterest = BigDecimal("0.00")
             return CalculationResult(
                 principal = principal2Dec,
+                enteredRate = rate,
+                rateType = rateType,
                 annualRate = annualRate,
                 monthlyRate = monthlyRate,
                 totalDays = totalDays,
@@ -190,7 +236,7 @@ object InterestCalculatorEngine {
         val remDays = monthData.remainingDays
 
         val annualRateFraction = annualRate.divide(HUNDRED, MATH_CONTEXT)
-        val monthlyRateFraction = annualRate.divide(TWELVE, MATH_CONTEXT).divide(HUNDRED, MATH_CONTEXT)
+        val monthlyRateFraction = monthlyRate.divide(HUNDRED, MATH_CONTEXT)
 
         var balance = principal
         val breakdowns = mutableListOf<CompoundingYearBreakdown>()
@@ -244,6 +290,8 @@ object InterestCalculatorEngine {
 
         return CalculationResult(
             principal = principal2Dec,
+            enteredRate = rate,
+            rateType = rateType,
             annualRate = annualRate,
             monthlyRate = monthlyRate,
             totalDays = totalDays,

@@ -3,6 +3,11 @@ package com.interestcalculator.app.data
 import java.math.BigDecimal
 import java.time.LocalDate
 
+enum class RateType(val displayName: String, val shortSuffix: String) {
+    PER_MONTH("% / Month (₹ per 100)", "% / mo"),
+    PER_YEAR("% / Year (Annual p.a.)", "% / yr")
+}
+
 data class CompoundingYearBreakdown(
     val yearNumber: Int,
     val periodLabel: String,
@@ -13,6 +18,8 @@ data class CompoundingYearBreakdown(
 
 data class CalculationResult(
     val principal: BigDecimal,
+    val enteredRate: BigDecimal = BigDecimal.ZERO,
+    val rateType: RateType = RateType.PER_MONTH,
     val annualRate: BigDecimal,
     val monthlyRate: BigDecimal = BigDecimal.ZERO,
     val totalDays: Long,
@@ -28,5 +35,6 @@ data class CalculationResult(
     val totalAmount: BigDecimal,
     val breakdownYears: List<CompoundingYearBreakdown> = emptyList(),
     val yearsMonthsDaysDisplay: String = "",
-    val monthsDisplay: String = ""
+    val monthsDisplay: String = "",
+    val formulaDisplay: String = ""
 )

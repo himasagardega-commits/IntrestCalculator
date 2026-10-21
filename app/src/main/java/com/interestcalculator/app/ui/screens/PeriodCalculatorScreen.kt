@@ -41,6 +41,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.interestcalculator.app.data.InterestType
+import com.interestcalculator.app.data.RateType
 import com.interestcalculator.app.engine.InterestCalculatorEngine
 import com.interestcalculator.app.ui.components.AppTopBar
 import com.interestcalculator.app.ui.components.CurrencyInputField
@@ -53,6 +54,7 @@ fun PeriodCalculatorScreen(
     onInterestTypeChanged: (InterestType) -> Unit,
     onPrincipalChanged: (String) -> Unit,
     onRateChanged: (String) -> Unit,
+    onRateTypeChanged: (RateType) -> Unit,
     onYearsChanged: (String) -> Unit,
     onMonthsChanged: (String) -> Unit,
     onDaysChanged: (String) -> Unit,
@@ -146,13 +148,41 @@ fun PeriodCalculatorScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Annual Rate Input
+                    // Rate Type Toggle: % / Month vs % / Year
+                    Text(
+                        text = "Interest Rate Type",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = uiState.rateType == RateType.PER_MONTH,
+                            onClick = { onRateTypeChanged(RateType.PER_MONTH) },
+                            label = { Text("% / Month (₹/100)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = uiState.rateType == RateType.PER_YEAR,
+                            onClick = { onRateTypeChanged(RateType.PER_YEAR) },
+                            label = { Text("% / Year (p.a.)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Rate Input with Dynamic Label & Suffix
                     CurrencyInputField(
                         value = uiState.periodRate,
                         onValueChange = onRateChanged,
-                        label = "Annual Interest Rate (%)",
-                        suffix = "% per year",
-                        placeholder = "e.g. 12",
+                        label = if (uiState.rateType == RateType.PER_MONTH) "Interest Rate (% per month / ₹ per 100)" else "Annual Interest Rate (%)",
+                        suffix = if (uiState.rateType == RateType.PER_MONTH) "% / mo" else "% / yr",
+                        placeholder = if (uiState.rateType == RateType.PER_MONTH) "e.g. 2 or 1.5" else "e.g. 12",
                         errorMessage = uiState.rateError
                     )
 

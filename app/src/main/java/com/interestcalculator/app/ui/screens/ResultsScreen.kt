@@ -225,6 +225,48 @@ fun ResultsScreen(
                 }
             }
 
+            // Formula Card for Simple Interest: (P * T * R) / 100
+            if (result.interestType == InterestType.SIMPLE) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "FORMULA USED",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            letterSpacing = 1.2.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Simple Interest = (P × T × R) / 100",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "= ($principalFormatted × ${result.totalMonthsFraction.setScale(2, java.math.RoundingMode.HALF_UP)} months × ${result.monthlyRate}%) / 100",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "= $interestFormatted",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(18.dp))
 
             // Detailed Breakdown Card
@@ -272,8 +314,13 @@ fun ResultsScreen(
                         color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                     )
 
-                    DetailRow(label = "Principal Amount", value = principalFormatted)
-                    DetailRow(label = "Annual Interest Rate", value = "${result.annualRate}%")
+                    DetailRow(label = "Principal (P)", value = principalFormatted)
+                    DetailRow(label = "Entered Rate", value = "${result.enteredRate}% (${result.rateType.displayName})")
+                    DetailRow(
+                        label = "Monthly Rate (R)",
+                        value = "${result.monthlyRate}% / mo",
+                        subtitle = if (result.rateType == com.interestcalculator.app.data.RateType.PER_YEAR) "(${result.annualRate}% ÷ 12)" else null
+                    )
                     DetailRow(label = "Interest Type", value = result.interestType.displayName)
                     DetailRow(label = "Calculation Mode", value = result.calculationMode.title)
 
@@ -287,14 +334,9 @@ fun ResultsScreen(
                         value = "${result.totalDays} Days"
                     )
                     DetailRow(
-                        label = "Converted Duration",
+                        label = "Time in Months (T)",
                         value = "${result.fullMonths} Months, ${result.remainingDays} Days",
                         subtitle = "${result.totalMonthsFraction.setScale(2, java.math.RoundingMode.HALF_UP)} months total"
-                    )
-                    DetailRow(
-                        label = "Monthly Rate",
-                        value = "${result.monthlyRate}% / mo",
-                        subtitle = "(${result.annualRate}% ÷ 12 months)"
                     )
                     DetailRow(
                         label = "Interest per Month",
