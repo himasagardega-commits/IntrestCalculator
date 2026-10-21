@@ -367,99 +367,115 @@ object InterestCalculatorEngine {
 
         val isOverdue = payingDate.isAfter(agreedDueDate)
         val differenceDisplay: String
-        val agreedInterest: BigDecimal
+        val agreedInterest = simpleInterest(principal, agreedMonthData.totalMonthsFraction, monthlyRate).setScale(2, RoundingMode.HALF_UP)
+        val actualAgreedAmount = principal2Dec.add(agreedInterest)
         val overdueInterest: BigDecimal
+        val combinedOverduePrincipal: BigDecimal?
+        val amountAfterOverdue: BigDecimal?
+        val totalInterest: BigDecimal
+        val totalAmount: BigDecimal
+        val formulaDisplay: String
 
         if (isOverdue) {
             val overdueDays = ChronoUnit.DAYS.between(agreedDueDate, payingDate)
             val overdueMonthData = convertDaysToMonths(overdueDays)
             differenceDisplay = "Overdue by ${overdueMonthData.fullMonths} mo, ${overdueMonthData.remainingDays} d ($overdueDays days late)"
-            agreedInterest = simpleInterest(principal, agreedMonthData.totalMonthsFraction, monthlyRate).setScale(2, RoundingMode.HALF_UP)
-            val rawOverdue = simpleInterest(principal, overdueMonthData.totalMonthsFraction, monthlyRate).setScale(2, RoundingMode.HALF_UP)
-            overdueInterest = rawOverdue
+
+            // When overdue: Principal & Agreed Interest combine at the promised due date (like compound interest)
+            val combinedBase = actualAgreedAmount
+            combinedOverduePrincipal = combinedBase
+
+            // Calculate overdue interest compounded on the combined balance
+            var currentBalance = combinedBase
+            val fullYears = overdueDays / 365L
+            val remDays = overdueDays % 365L
+
+            for (y in 1..fullYears) {
+                val yearInterest = currentBalance.multiply(annualRate, MATH_CONTEXT).divide(HUNDRED, MATH_CONTEXT)
+                currentBalance = currentBalance.add(yearInterest)
+            }
+            if (remDays > 0L) {
+                val remMonthData = convertDaysToMonths(remDays)
+                val remInterest = simpleInterest(currentBalance, remMonthData.totalMonthsFraction, monthlyRate)
+                currentBalance = currentBalance.add(remInterest)
+            }
+
+            val finalOverdueAmount = currentBalance.setScale(2, RoundingMode.HALF_UP)
+            amountAfterOverdue = finalOverdueAmount
+            overdueInterest = finalOverdueAmount.subtract(combinedBase).setScale(2, RoundingMode.HALF_UP)
+            totalInterest = agreedInterest.add(overdueInterest)
+            totalAmount = finalOverdueAmount
+
+            formulaDisplay = buildString {
+                append("1. Agreed Period: ($principal2Dec × ${agreedMonthData.totalMonthsFraction.setScale(2, RoundingMode.HALF_UP)} mo × $monthlyRate%) / 100 = ₹$agreedInterest\n")
+                append("2. Actual Amount at Due Date: ₹$principal2Dec + ₹$agreedInterest = ₹$actualAgreedAmount\n")
+                append("3. Combined Overdue Principal: ₹$combinedBase (P + I combined at due date)\n")
+                append("4. Overdue Period (${overdueMonthData.totalMonthsFraction.setScale(2, RoundingMode.HALF_UP)} mo): Compounded on ₹$combinedBase = ₹$overdueInterest\n")
+                append("5. Amount After Overdue Date: ₹$combinedBase + ₹$overdueInterest = ₹$amountAfterOverdue")
+            }
         } else if (payingDate.isEqual(agreedDueDate)) {
             differenceDisplay = "Paid exactly on agreed due date"
-            val total = simpleInterest(principal, monthData.totalMonthsFraction, monthlyRate).setScale(2, RoundingMode.HALF_UP)
-            agreedInterest = total
             overdueInterest = BigDecimal("0.00")
+            combinedOverduePrincipal = null
+            amountAfterOverdue = actualAgreedAmount
+            totalInterest = agreedInterest
+            totalAmount = actualAgreedAmount
+            formulaDisplay = "Agreed Period: ($principal2Dec × ${agreedMonthData.totalMonthsFraction.setScale(2, RoundingMode.HALF_UP)} mo × $monthlyRate%) / 100 = ₹$agreedInterest"
         } else {
             val earlyDays = ChronoUnit.DAYS.between(payingDate, agreedDueDate)
             val earlyMonthData = convertDaysToMonths(earlyDays)
             differenceDisplay = "Paid early by ${earlyMonthData.fullMonths} mo, ${earlyMonthData.remainingDays} d ($earlyDays days ahead)"
-            agreedInterest = simpleInterest(principal, agreedMonthData.totalMonthsFraction, monthlyRate).setScale(2, RoundingMode.HALF_UP)
             overdueInterest = BigDecimal("0.00")
-        }
+            combinedOverduePrincipal = null
+            amountAfterOverdue = null
 
-        if (interestType == InterestType.SIMPLE) {
-            val rawTotalInterest = if (paytimeDays == 0L || rate.compareTo(BigDecimal.ZERO) == 0) {
+            val settledInterest = if (paytimeDays == 0L || rate.compareTo(BigDecimal.ZERO) == 0) {
                 BigDecimal("0.00")
             } else {
-                simpleInterest(principal, monthData.totalMonthsFraction, monthlyRate)
+                simpleInterest(principal, monthData.totalMonthsFraction, monthlyRate).setScale(2, RoundingMode.HALF_UP)
             }
-            val totalInterest = rawTotalInterest.setScale(2, RoundingMode.HALF_UP)
-            val totalAmount = principal2Dec.add(totalInterest)
-            val formulaDisplay = "($principal2Dec × ${monthData.totalMonthsFraction.setScale(2, RoundingMode.HALF_UP)} mo × $monthlyRate%) / 100 = ₹$totalInterest"
-
-            return CalculationResult(
-                principal = principal2Dec,
-                enteredRate = rate,
-                rateType = rateType,
-                annualRate = annualRate,
-                monthlyRate = monthlyRate,
-                totalDays = paytimeDays,
-                fullMonths = monthData.fullMonths,
-                remainingDays = monthData.remainingDays,
-                totalMonthsFraction = monthData.totalMonthsFraction,
-                interestType = InterestType.SIMPLE,
-                calculationMode = CalculationMode.SPECIFIED_PERIOD,
-                startDate = borrowDate,
-                endDate = payingDate,
-                monthlyInterestAmount = monthlyInterestAmount,
-                totalInterest = totalInterest,
-                totalAmount = totalAmount,
-                yearsMonthsDaysDisplay = paytimeDurationDisplay,
-                monthsDisplay = monthData.monthsDisplay,
-                formulaDisplay = formulaDisplay,
-                borrowDate = borrowDate,
-                payingDate = payingDate,
-                agreedYears = agreedYears,
-                agreedMonths = agreedMonths,
-                agreedDays = agreedDays,
-                agreedTotalDays = agreedTotalDays,
-                agreedDueDate = agreedDueDate,
-                agreedDurationDisplay = agreedDurationDisplay,
-                paytimeDurationDisplay = paytimeDurationDisplay,
-                isOverdue = isOverdue,
-                differenceDisplay = differenceDisplay,
-                agreedInterest = agreedInterest,
-                overdueInterest = overdueInterest
-            )
-        } else {
-            val baseResult = calculateCompoundInterest(
-                principal = principal,
-                rate = rate,
-                totalDays = paytimeDays,
-                rateType = rateType,
-                mode = CalculationMode.SPECIFIED_PERIOD,
-                startDate = borrowDate,
-                endDate = payingDate
-            )
-            return baseResult.copy(
-                borrowDate = borrowDate,
-                payingDate = payingDate,
-                agreedYears = agreedYears,
-                agreedMonths = agreedMonths,
-                agreedDays = agreedDays,
-                agreedTotalDays = agreedTotalDays,
-                agreedDueDate = agreedDueDate,
-                agreedDurationDisplay = agreedDurationDisplay,
-                paytimeDurationDisplay = paytimeDurationDisplay,
-                isOverdue = isOverdue,
-                differenceDisplay = differenceDisplay,
-                agreedInterest = agreedInterest,
-                overdueInterest = overdueInterest
-            )
+            totalInterest = settledInterest
+            totalAmount = principal2Dec.add(settledInterest)
+            formulaDisplay = "Early Settlement: ($principal2Dec × ${monthData.totalMonthsFraction.setScale(2, RoundingMode.HALF_UP)} mo × $monthlyRate%) / 100 = ₹$settledInterest"
         }
+
+        return CalculationResult(
+            principal = principal2Dec,
+            enteredRate = rate,
+            rateType = rateType,
+            annualRate = annualRate,
+            monthlyRate = monthlyRate,
+            totalDays = paytimeDays,
+            fullMonths = monthData.fullMonths,
+            remainingDays = monthData.remainingDays,
+            totalMonthsFraction = monthData.totalMonthsFraction,
+            interestType = interestType,
+            calculationMode = CalculationMode.SPECIFIED_PERIOD,
+            startDate = borrowDate,
+            endDate = payingDate,
+            monthlyInterestAmount = monthlyInterestAmount,
+            totalInterest = totalInterest,
+            totalAmount = totalAmount,
+            yearsMonthsDaysDisplay = paytimeDurationDisplay,
+            monthsDisplay = monthData.monthsDisplay,
+            formulaDisplay = formulaDisplay,
+            borrowDate = borrowDate,
+            payingDate = payingDate,
+            agreedYears = agreedYears,
+            agreedMonths = agreedMonths,
+            agreedDays = agreedDays,
+            agreedTotalDays = agreedTotalDays,
+            agreedDueDate = agreedDueDate,
+            agreedDurationDisplay = agreedDurationDisplay,
+            paytimeDurationDisplay = paytimeDurationDisplay,
+            isOverdue = isOverdue,
+            differenceDisplay = differenceDisplay,
+            agreedInterest = agreedInterest,
+            overdueInterest = overdueInterest,
+            actualAgreedAmount = actualAgreedAmount,
+            combinedOverduePrincipal = combinedOverduePrincipal,
+            amountAfterOverdue = amountAfterOverdue
+        )
     }
 
     /**

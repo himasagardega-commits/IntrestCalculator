@@ -602,10 +602,17 @@
 
         <!-- SCREEN 4: RESULTS -->
         <div id="screenResults" class="screen">
-            <div class="hero-result">
-                <div class="hero-label">FINAL AMOUNT</div>
+            <div class="hero-result" id="heroResultBox">
+                <div class="hero-label" id="resHeroLabel">FINAL AMOUNT</div>
                 <div class="hero-amount" id="resTotalAmount">₹0.00</div>
                 <div class="hero-sub" id="resSummarySub">Principal + Interest</div>
+            </div>
+
+            <!-- Actual Amount on Due Date Card (Prominent when Overdue) -->
+            <div id="resActualAmountCard" class="card" style="display: none; background: #E8F4F8; border-left: 4px solid var(--primary); padding: 14px; margin-bottom: 14px;">
+                <div style="font-size: 11px; font-weight: 700; color: var(--primary); letter-spacing: 0.5px;">ACTUAL AMOUNT (ON PROMISED DUE DATE)</div>
+                <div style="font-size: 20px; font-weight: 800; color: var(--text-dark); margin: 4px 0;" id="resActualAmountVal">₹0.00</div>
+                <div style="font-size: 12px; color: var(--text-muted);" id="resActualAmountSub">Principal + Agreed Interest on Promised Return Date</div>
             </div>
 
             <div class="interest-card">
@@ -631,10 +638,13 @@
                     <div style="width: 100%; display: flex; justify-content: space-between;"><span style="color: var(--text-muted); font-size: 13px;">Borrow Date:</span><strong id="resBorrowDate" style="font-size: 13px;">-</strong></div>
                     <div style="width: 100%; display: flex; justify-content: space-between;"><span style="color: var(--text-muted); font-size: 13px;">Agreed Duration:</span><strong id="resAgreedDuration" style="font-size: 13px;">-</strong></div>
                     <div style="width: 100%; display: flex; justify-content: space-between;"><span style="color: var(--text-muted); font-size: 13px;">Promised Return Date:</span><strong id="resPromisedDate" style="font-size: 13px;">-</strong></div>
+                    <div style="width: 100%; display: flex; justify-content: space-between;"><span style="color: var(--text-muted); font-size: 13px;">Actual Amount on Due Date:</span><strong id="resAgreedDueAmount" style="font-size: 13px; color: var(--primary);">-</strong></div>
                     <div style="width: 100%; display: flex; justify-content: space-between;"><span style="color: var(--text-muted); font-size: 13px;">Paying Date:</span><strong id="resPayingDate" style="font-size: 13px;">-</strong></div>
                     <div style="width: 100%; display: flex; justify-content: space-between;"><span style="color: var(--text-muted); font-size: 13px;">Settlement Status:</span><strong id="resPaymentStatus" style="font-size: 13px;">-</strong></div>
                     <div id="rowAgreedInterest" style="width: 100%; display: none; justify-content: space-between;"><span style="color: var(--text-muted); font-size: 13px;">Agreed Period Interest:</span><strong id="resAgreedInterest" style="font-size: 13px;">-</strong></div>
+                    <div id="rowCombinedBase" style="width: 100%; display: none; justify-content: space-between;"><span style="color: var(--text-muted); font-size: 13px;">Combined Base (P + I):</span><strong id="resCombinedBase" style="font-size: 13px;">-</strong></div>
                     <div id="rowOverdueInterest" style="width: 100%; display: none; justify-content: space-between;"><span style="color: var(--error); font-size: 13px;">Overdue Delay Interest:</span><strong id="resOverdueInterest" style="font-size: 13px; color: var(--error);">-</strong></div>
+                    <div id="rowAmountAfterOverdue" style="width: 100%; display: none; justify-content: space-between;"><span style="color: var(--error); font-size: 13px;">Amount After Overdue Date:</span><strong id="resAmountAfterOverdue" style="font-size: 13px; color: var(--error);">-</strong></div>
                 </div>
 
                 <div class="detail-row"><span class="detail-label">Principal Amount</span><span class="detail-val" id="resPrincipal">₹0.00</span></div>
@@ -1152,29 +1162,56 @@
         if (ad > 0 || agreedParts.length === 0) agreedParts.push(ad + ' d');
         const agreedDurationDisplay = agreedParts.join(', ') + ` (${agreedTotalDays} days)`;
 
+        const monthlyRate = currentPeriodRateType === 'MONTH' ? r : (r / 12);
+        const annualRate = currentPeriodRateType === 'MONTH' ? (r * 12) : r;
+        const agreedMonthData = convertDaysToMonths(agreedTotalDays);
+        const agreedInterest = Math.round(simpleInterest(p, agreedMonthData.totalMonthsFraction, monthlyRate) * 100) / 100;
+        const actualAgreedAmount = Math.round((p + agreedInterest) * 100) / 100;
+
         const payDate = new Date(payStr);
         const isOverdue = payDate > agreedDueDate;
         let differenceDisplay = '';
-        let agreedInterest = 0;
         let overdueInterest = 0;
-
-        const monthlyRate = currentPeriodRateType === 'MONTH' ? r : (r / 12);
-        const agreedMonthData = convertDaysToMonths(agreedTotalDays);
+        let amountAfterOverdue = null;
+        let combinedOverduePrincipal = null;
+        let totalInterest = 0;
+        let totalAmount = 0;
 
         if (isOverdue) {
             const lateDays = calcDaysDifference(agreedDueDateStr, payStr);
             const lateMonthData = convertDaysToMonths(lateDays);
             differenceDisplay = `Overdue by ${lateMonthData.fullMonths} mo, ${lateMonthData.remainingDays} d (${lateDays} days late)`;
-            agreedInterest = simpleInterest(p, agreedMonthData.totalMonthsFraction, monthlyRate);
-            overdueInterest = simpleInterest(p, lateMonthData.totalMonthsFraction, monthlyRate);
+
+            // When overdue: Principal & Agreed Interest combine at the promised due date (like compound interest)
+            combinedOverduePrincipal = actualAgreedAmount;
+            let balance = combinedOverduePrincipal;
+            const fullYears = Math.floor(lateDays / 365);
+            const remDays = lateDays % 365;
+
+            for (let y = 1; y <= fullYears; y++) {
+                balance += balance * (annualRate / 100);
+            }
+            if (remDays > 0) {
+                const remMonthData = convertDaysToMonths(remDays);
+                balance += balance * (monthlyRate / 100) * remMonthData.totalMonthsFraction;
+            }
+
+            amountAfterOverdue = Math.round(balance * 100) / 100;
+            overdueInterest = Math.round((amountAfterOverdue - combinedOverduePrincipal) * 100) / 100;
+            totalInterest = Math.round((agreedInterest + overdueInterest) * 100) / 100;
+            totalAmount = amountAfterOverdue;
         } else if (payStr === agreedDueDateStr) {
-            differenceDisplay = 'Paid exactly on agreed due date';
-            agreedInterest = res.interest;
+            differenceDisplay = 'Paid exactly on agreed due date (On-Time)';
+            totalInterest = agreedInterest;
+            totalAmount = actualAgreedAmount;
+            amountAfterOverdue = actualAgreedAmount;
         } else {
             const earlyDays = calcDaysDifference(payStr, agreedDueDateStr);
             const earlyMonthData = convertDaysToMonths(earlyDays);
             differenceDisplay = `Paid early by ${earlyMonthData.fullMonths} mo, ${earlyMonthData.remainingDays} d (${earlyDays} days ahead)`;
-            agreedInterest = simpleInterest(p, agreedMonthData.totalMonthsFraction, monthlyRate);
+            const settledInterest = Math.round(simpleInterest(p, paytimeMonthData.totalMonthsFraction, monthlyRate) * 100) / 100;
+            totalInterest = settledInterest;
+            totalAmount = Math.round((p + totalInterest) * 100) / 100;
         }
 
         displayResults({
@@ -1190,15 +1227,18 @@
             isOverdue: isOverdue,
             differenceDisplay: differenceDisplay,
             agreedInterest: agreedInterest,
+            actualAgreedAmount: actualAgreedAmount,
+            combinedOverduePrincipal: combinedOverduePrincipal,
             overdueInterest: overdueInterest,
+            amountAfterOverdue: amountAfterOverdue,
             type: selectedInterestType,
-            interest: res.interest,
-            total: res.total,
-            monthlyRate: res.monthlyRate,
-            annualRate: res.annualRate,
-            monthlyInterestAmount: res.monthlyInterestAmount,
-            monthData: res.monthData,
-            breakdown: res.breakdown
+            interest: totalInterest,
+            total: totalAmount,
+            monthlyRate: monthlyRate,
+            annualRate: annualRate,
+            monthlyInterestAmount: (p * monthlyRate) / 100,
+            monthData: paytimeMonthData,
+            breakdown: []
         });
     }
 
@@ -1227,8 +1267,29 @@
 
         const mData = data.monthData || convertDaysToMonths(data.days);
 
-        document.getElementById('resTotalAmount').innerText = formatIndian(data.total);
-        document.getElementById('resSummarySub').innerText = `Principal (${formatIndian(data.principal)}) + Interest (${formatIndian(data.interest)})`;
+        if (data.isOverdue && data.amountAfterOverdue) {
+            document.getElementById('resHeroLabel').innerText = 'AMOUNT AFTER OVERDUE DATE';
+            document.getElementById('resTotalAmount').innerText = formatIndian(data.total);
+            document.getElementById('resSummarySub').innerText = `Compounded Overdue Total (Payable on Repayment Date)`;
+            document.getElementById('heroResultBox').style.background = 'linear-gradient(135deg, #DC2626 0%, #991B1B 100%)';
+
+            document.getElementById('resActualAmountCard').style.display = 'block';
+            document.getElementById('resActualAmountVal').innerText = formatIndian(data.actualAgreedAmount);
+            document.getElementById('resActualAmountSub').innerText = `Principal (${formatIndian(data.principal)}) + Agreed Interest (${formatIndian(data.agreedInterest)})`;
+        } else {
+            document.getElementById('resHeroLabel').innerText = 'FINAL AMOUNT';
+            document.getElementById('resTotalAmount').innerText = formatIndian(data.total);
+            document.getElementById('heroResultBox').style.background = 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)';
+            if (data.actualAgreedAmount) {
+                document.getElementById('resActualAmountCard').style.display = 'block';
+                document.getElementById('resActualAmountVal').innerText = formatIndian(data.actualAgreedAmount);
+                document.getElementById('resActualAmountSub').innerText = `Promised Amount at Due Date (${data.agreedDueDate})`;
+            } else {
+                document.getElementById('resActualAmountCard').style.display = 'none';
+            }
+            document.getElementById('resSummarySub').innerText = `Principal (${formatIndian(data.principal)}) + Interest (${formatIndian(data.interest)})`;
+        }
+
         document.getElementById('resTotalInterest').innerText = formatIndian(data.interest);
         document.getElementById('resPrincipal').innerText = formatIndian(data.principal);
         
@@ -1248,6 +1309,7 @@
             document.getElementById('resBorrowDate').innerText = data.borrowDate;
             document.getElementById('resAgreedDuration').innerText = data.agreedDurationDisplay;
             document.getElementById('resPromisedDate').innerText = data.agreedDueDate;
+            document.getElementById('resAgreedDueAmount').innerText = data.actualAgreedAmount ? formatIndian(data.actualAgreedAmount) : '-';
             document.getElementById('resPayingDate').innerText = data.payingDate;
             
             const statusElem = document.getElementById('resPaymentStatus');
@@ -1255,15 +1317,28 @@
             statusElem.style.color = data.isOverdue ? 'var(--error)' : 'var(--primary)';
 
             const rowAgreed = document.getElementById('rowAgreedInterest');
+            const rowCombined = document.getElementById('rowCombinedBase');
             const rowOverdue = document.getElementById('rowOverdueInterest');
-            if (data.isOverdue && data.agreedInterest && data.overdueInterest) {
+            const rowAfterOverdue = document.getElementById('rowAmountAfterOverdue');
+
+            if (data.isOverdue && data.amountAfterOverdue) {
                 rowAgreed.style.display = 'flex';
                 document.getElementById('resAgreedInterest').innerText = formatIndian(data.agreedInterest);
+
+                rowCombined.style.display = 'flex';
+                document.getElementById('resCombinedBase').innerText = formatIndian(data.combinedOverduePrincipal);
+
                 rowOverdue.style.display = 'flex';
                 document.getElementById('resOverdueInterest').innerText = formatIndian(data.overdueInterest);
+
+                rowAfterOverdue.style.display = 'flex';
+                document.getElementById('resAmountAfterOverdue').innerText = formatIndian(data.amountAfterOverdue);
             } else {
-                rowAgreed.style.display = 'none';
+                rowAgreed.style.display = data.agreedInterest ? 'flex' : 'none';
+                if (data.agreedInterest) document.getElementById('resAgreedInterest').innerText = formatIndian(data.agreedInterest);
+                rowCombined.style.display = 'none';
                 rowOverdue.style.display = 'none';
+                rowAfterOverdue.style.display = 'none';
             }
         } else {
             rowAgreement.style.display = 'none';

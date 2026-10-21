@@ -98,11 +98,19 @@ Engineered for real-world peer-to-peer loan agreements:
    - The engine computes the total elapsed calendar days between Borrow Date and Paying Date:
      $$T_{\text{paytime}} = \text{Full Months} + \frac{\text{Remaining Days}}{30}$$
 3. **Settlement & Overdue Analysis**:
-   - Total interest is computed strictly across the actual elapsed paytime duration using $(P \times T_{\text{paytime}} \times R) / 100$.
+   - **On-Time / Paid Early**: If paid on or before the promised due date, standard simple interest applies to the elapsed paytime:
+     $$\text{Total Amount} = P + \frac{P \times T_{\text{paytime}} \times R}{100}$$
+     Displays **Actual Amount on Due Date** alongside early settlement savings.
+   - **Overdue / Time Exceeded (Compounding Rule)**: At the promised due date, the **Principal and Agreed Interest are combined** into a new base balance (compounded):
+     $$P_{\text{combined}} = P + \text{Agreed Interest} = P + \frac{P \times T_{\text{agreed}} \times R}{100}$$
+     For the overdue duration ($T_{\text{overdue}}$ from promised return date to actual repayment date), interest is calculated on this combined principal:
+     $$\text{Overdue Delay Interest} = \frac{P_{\text{combined}} \times T_{\text{overdue}} \times R}{100}$$
+     $$\text{Amount After Overdue Date} = P_{\text{combined}} + \text{Overdue Delay Interest}$$
    - The results screen details:
-     - **Agreed Period Interest**: Interest for the duration originally promised.
-     - **Overdue Delay Interest**: Interest accumulated during the delayed period.
-     - **Status Badge**: Clear on-time or overdue indicator with exact difference in days.
+     - **Actual Amount (on Due Date)**: What was originally due on the promised date ($P + I_{\text{agreed}}$).
+     - **Amount After Overdue Date**: Total payable amount incorporating the compounded delay interest.
+     - **Combined Overdue Principal**: Base balance upon which overdue interest accrued.
+     - **Overdue Delay Interest**: Interest accumulated strictly during the delay period.
 
 ---
 
@@ -176,8 +184,8 @@ The test suite in [`InterestCalculatorEngineTest.kt`](file:///d:/Cal/app/src/tes
 | 15 | Displayed total equation | Arbitrary values | $\text{Total} \equiv P + \text{Interest}$ strictly holds | ✅ Passed |
 | 16 | User Formula Simple Interest | ₹1,00,000, 12 mo, 2% | Exactly ₹24,000.00 | ✅ Passed |
 | 17 | User Formula Partial Month | ₹50,000, 6.5 mo, 1.5% | Exactly ₹4,875.00 | ✅ Passed |
-| 18 | Special Period (Overdue) | 6 mo agreed, paid at 8 mo 3 d | Overdue by 64 days, separate interest breakdown | ✅ Passed |
-| 19 | Special Period (Paid Early) | 6 mo agreed, paid at 4 mo | Paid early by 61 days, no penalty | ✅ Passed |
+| 18 | Special Period (Overdue) | 6 mo agreed, paid at 8 mo 3 d | Overdue: P + I combined at due date, compounded overdue interest | ✅ Passed |
+| 19 | Special Period (Paid Early) | 6 mo agreed, paid at 4 mo | Paid early: Actual due amount ₹11,200, settled at ₹10,800 | ✅ Passed |
 
 To run the test suite:
 ```bash

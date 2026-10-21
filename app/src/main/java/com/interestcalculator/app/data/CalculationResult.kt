@@ -49,5 +49,8 @@ data class CalculationResult(
     val isOverdue: Boolean = false,
     val differenceDisplay: String = "",
     val agreedInterest: BigDecimal? = null,
-    val overdueInterest: BigDecimal? = null
+    val overdueInterest: BigDecimal? = null,
+    val actualAgreedAmount: BigDecimal? = null,
+    val combinedOverduePrincipal: BigDecimal? = null,
+    val amountAfterOverdue: BigDecimal? = null
 )

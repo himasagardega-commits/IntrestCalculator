@@ -97,16 +97,25 @@ fun ResultsScreen(
             }
             if (result.borrowDate != null && result.payingDate != null) {
                 appendLine("Borrow Date: ${result.borrowDate.format(dateFormatter)}")
-                appendLine("Agreed Agreement Duration: ${result.agreedDurationDisplay}")
+                appendLine("Agreed Duration: ${result.agreedDurationDisplay}")
                 if (result.agreedDueDate != null) {
                     appendLine("Promised Due Date: ${result.agreedDueDate.format(dateFormatter)}")
                 }
                 appendLine("Paying Date: ${result.payingDate.format(dateFormatter)}")
                 appendLine("Status: ${result.differenceDisplay}")
+                if (result.actualAgreedAmount != null) {
+                    appendLine("Actual Amount (on Due Date): ${InterestCalculatorEngine.formatIndianCurrency(result.actualAgreedAmount)}")
+                }
+                if (result.isOverdue && result.amountAfterOverdue != null) {
+                    val combinedBase = result.combinedOverduePrincipal ?: result.actualAgreedAmount ?: java.math.BigDecimal.ZERO
+                    appendLine("Combined Overdue Base: ${InterestCalculatorEngine.formatIndianCurrency(combinedBase)}")
+                    appendLine("Overdue Delay Interest: ${InterestCalculatorEngine.formatIndianCurrency(result.overdueInterest ?: java.math.BigDecimal.ZERO)}")
+                    appendLine("Amount After Overdue Date: ${InterestCalculatorEngine.formatIndianCurrency(result.amountAfterOverdue)}")
+                }
             }
             appendLine("Total Duration: ${result.totalDays} days (${result.yearsMonthsDaysDisplay})")
             appendLine("Total Interest: $interestFormatted")
-            appendLine("Final Amount: $totalAmountFormatted")
+            appendLine("Final Payable Amount: $totalAmountFormatted")
         }
 
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -131,10 +140,19 @@ fun ResultsScreen(
                 }
                 appendLine("Paying Date: ${result.payingDate.format(dateFormatter)}")
                 appendLine("Status: ${result.differenceDisplay}")
+                if (result.actualAgreedAmount != null) {
+                    appendLine("Actual Amount (on Due Date): ${InterestCalculatorEngine.formatIndianCurrency(result.actualAgreedAmount)}")
+                }
+                if (result.isOverdue && result.amountAfterOverdue != null) {
+                    val combinedBase = result.combinedOverduePrincipal ?: result.actualAgreedAmount ?: java.math.BigDecimal.ZERO
+                    appendLine("Combined Overdue Base: ${InterestCalculatorEngine.formatIndianCurrency(combinedBase)}")
+                    appendLine("Overdue Delay Interest: ${InterestCalculatorEngine.formatIndianCurrency(result.overdueInterest ?: java.math.BigDecimal.ZERO)}")
+                    appendLine("Amount After Overdue Date: ${InterestCalculatorEngine.formatIndianCurrency(result.amountAfterOverdue)}")
+                }
             }
             appendLine("Total Days: ${result.totalDays} days")
             appendLine("Total Interest: $interestFormatted")
-            appendLine("Final Amount: $totalAmountFormatted")
+            appendLine("Final Payable Amount: $totalAmountFormatted")
         }
 
         val intent = Intent(Intent.ACTION_SEND).apply {
@@ -164,40 +182,149 @@ fun ResultsScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Prominent Highlight Cards: Total Amount & Total Interest
-            Card(
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
+            // Prominent Highlight Cards: Total Amount / Amount After Overdue Date & Actual Amount on Due Date
+            if (result.isOverdue && result.amountAfterOverdue != null && result.actualAgreedAmount != null) {
+                // Overdue Total Amount Card
+                Card(
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .border(1.5.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(22.dp))
                 ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(22.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "AMOUNT AFTER OVERDUE DATE",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f),
+                            letterSpacing = 1.5.sp
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = totalAmountFormatted,
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 32.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Compounded Overdue Total (Payable on Repayment Date)",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Actual Amount on Agreed Due Date Card
+                Card(
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(18.dp))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "ACTUAL AMOUNT (ON DUE DATE)",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                letterSpacing = 1.2.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = InterestCalculatorEngine.formatIndianCurrency(result.actualAgreedAmount),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Principal ($principalFormatted) + Agreed Interest (${InterestCalculatorEngine.formatIndianCurrency(result.agreedInterest ?: java.math.BigDecimal.ZERO)})",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Compounding explanation banner
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f))
+                        .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                        .padding(12.dp)
+                ) {
+                    val bannerBase = result.combinedOverduePrincipal ?: result.actualAgreedAmount
                     Text(
-                        text = "FINAL AMOUNT",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
-                        letterSpacing = 1.5.sp
+                        text = "ℹ️ Compounding Rule: Principal and Agreed Interest combined into ${InterestCalculatorEngine.formatIndianCurrency(bannerBase)} at due date for overdue calculation.",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onErrorContainer
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = totalAmountFormatted,
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontSize = 32.sp
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Principal ($principalFormatted) + Interest ($interestFormatted)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
-                    )
+                }
+            } else {
+                Card(
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "FINAL AMOUNT",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                            letterSpacing = 1.5.sp
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = totalAmountFormatted,
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontSize = 32.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (result.actualAgreedAmount != null) {
+                                "Actual Amount at Due Date: ${InterestCalculatorEngine.formatIndianCurrency(result.actualAgreedAmount)}"
+                            } else {
+                                "Principal ($principalFormatted) + Interest ($interestFormatted)"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
+                        )
+                    }
                 }
             }
 
@@ -360,16 +487,34 @@ fun ResultsScreen(
                             isBold = true,
                             valueColor = if (result.isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                         )
-                        if (result.agreedInterest != null && result.overdueInterest != null && result.isOverdue) {
+                        if (result.actualAgreedAmount != null) {
                             DetailRow(
-                                label = "Agreed Period Interest",
-                                value = InterestCalculatorEngine.formatIndianCurrency(result.agreedInterest)
+                                label = "Actual Amount on Due Date",
+                                value = InterestCalculatorEngine.formatIndianCurrency(result.actualAgreedAmount),
+                                subtitle = "Principal ($principalFormatted) + Agreed Interest (${InterestCalculatorEngine.formatIndianCurrency(result.agreedInterest ?: java.math.BigDecimal.ZERO)})",
+                                isBold = true
+                            )
+                        }
+                        if (result.isOverdue && result.combinedOverduePrincipal != null && result.overdueInterest != null) {
+                            DetailRow(
+                                label = "Combined Base for Overdue",
+                                value = InterestCalculatorEngine.formatIndianCurrency(result.combinedOverduePrincipal),
+                                subtitle = "Principal & Interest combined at due date"
                             )
                             DetailRow(
-                                label = "Overdue Delay Interest",
+                                label = "Overdue Delay Interest (Compounded)",
                                 value = InterestCalculatorEngine.formatIndianCurrency(result.overdueInterest),
-                                valueColor = MaterialTheme.colorScheme.error
+                                valueColor = MaterialTheme.colorScheme.error,
+                                isBold = true
                             )
+                            if (result.amountAfterOverdue != null) {
+                                DetailRow(
+                                    label = "Amount After Overdue Date",
+                                    value = InterestCalculatorEngine.formatIndianCurrency(result.amountAfterOverdue),
+                                    valueColor = MaterialTheme.colorScheme.error,
+                                    isBold = true
+                                )
+                            }
                         }
                     }
 

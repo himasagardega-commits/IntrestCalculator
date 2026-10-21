@@ -686,15 +686,31 @@ fun PeriodCalculatorScreen(
                             text = InterestCalculatorEngine.formatIndianCurrency(uiState.currentResult.totalInterest),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = if (uiState.currentResult.isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Total Payable Amount: ${InterestCalculatorEngine.formatIndianCurrency(uiState.currentResult.totalAmount)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        if (uiState.currentResult.isOverdue && uiState.currentResult.actualAgreedAmount != null) {
+                            Text(
+                                text = "Amount After Overdue Date: ${InterestCalculatorEngine.formatIndianCurrency(uiState.currentResult.totalAmount)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Actual Amount on Due Date: ${InterestCalculatorEngine.formatIndianCurrency(uiState.currentResult.actualAgreedAmount)} (P + I combined)",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            Text(
+                                text = "Total Payable Amount: ${InterestCalculatorEngine.formatIndianCurrency(uiState.currentResult.totalAmount)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))

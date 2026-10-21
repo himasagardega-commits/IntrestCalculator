@@ -5,6 +5,7 @@ import com.interestcalculator.app.data.InterestType
 import com.interestcalculator.app.engine.InterestCalculatorEngine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -283,10 +284,20 @@ class InterestCalculatorEngineTest {
         assertEquals(243L, res.totalDays) // Elapsed days Jan 1 to Sep 1
         assertEquals(8L, res.fullMonths)
         assertEquals(3L, res.remainingDays)
-        // 8 + 3/30 = 8.1 months
-        // (10000 * 8.1 * 2) / 100 = 1620.00
-        assertEquals(BigDecimal("1620.00"), res.totalInterest)
-        assertEquals(BigDecimal("11620.00"), res.totalAmount)
+
+        // 1. Agreed period: 6 months @ 2% on 10,000 = 1200.00
+        assertEquals(BigDecimal("1200.00"), res.agreedInterest)
+        // 2. Actual Amount on Due Date = 10,000 + 1,200 = 11,200.00
+        assertEquals(BigDecimal("11200.00"), res.actualAgreedAmount)
+        // 3. Combined overdue principal = 11,200.00
+        assertEquals(BigDecimal("11200.00"), res.combinedOverduePrincipal)
+        // 4. Overdue period from July 1 to Sep 1 = 62 days (2 mo, 2 days = 2.0666... mo)
+        // Compounded overdue interest: (11200 * (2 + 2/30) * 2) / 100 = 462.93
+        assertEquals(BigDecimal("462.93"), res.overdueInterest)
+        // 5. Amount After Overdue Date = 11200.00 + 462.93 = 11662.93
+        assertEquals(BigDecimal("11662.93"), res.amountAfterOverdue)
+        assertEquals(BigDecimal("1662.93"), res.totalInterest)
+        assertEquals(BigDecimal("11662.93"), res.totalAmount)
         assertTrue(res.differenceDisplay.contains("Overdue"))
     }
 
@@ -319,9 +330,13 @@ class InterestCalculatorEngineTest {
         assertEquals(120L, res.totalDays) // Elapsed days Jan 1 to May 1
         assertEquals(4L, res.fullMonths)
         assertEquals(0L, res.remainingDays)
-        // (10000 * 4 * 2) / 100 = 800.00
+        // Actual amount on due date was 11,200.00
+        assertEquals(BigDecimal("11200.00"), res.actualAgreedAmount)
+        // Settled early at 4 months: (10000 * 4 * 2) / 100 = 800.00
         assertEquals(BigDecimal("800.00"), res.totalInterest)
         assertEquals(BigDecimal("10800.00"), res.totalAmount)
+        assertEquals(BigDecimal("0.00"), res.overdueInterest)
+        assertNull(res.amountAfterOverdue)
         assertTrue(res.differenceDisplay.contains("Paid early"))
     }
 }
